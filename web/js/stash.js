@@ -44,9 +44,11 @@
         UI.el("button", { class: "stash-x", title: t("stash.remove") }, ["✕"])
       ]);
       cell.querySelector("img").addEventListener("dragstart", function (e) {
-        // 拖出 = dataURL（画布类工具按 text/ff-stash 接收落图）
+        // 拖出协议对齐原站：application/x-frameronin-stash-url + 兼容 text/ff-stash
+        e.dataTransfer.setData("application/x-frameronin-stash-url", it.url);
         e.dataTransfer.setData("text/ff-stash", it.url);
         e.dataTransfer.setData("text/uri-list", it.url);
+        if (it.name) { try { e.dataTransfer.setData("stash-name", it.name); } catch (err) {} }
       });
       cell.querySelector(".stash-x").addEventListener("click", function (e) {
         e.stopPropagation();

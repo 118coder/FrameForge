@@ -170,8 +170,9 @@
     stageWrap.addEventListener("dragover", function (e) { e.preventDefault(); });
     stageWrap.addEventListener("drop", function (e) {
       e.preventDefault();
-      // 暂存拖出（text/ff-stash = dataURL 列表）
-      var stashData = e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData("text/ff-stash");
+      // 暂存拖出（原站 MIME 优先，兼容 text/ff-stash）
+      var stashData = "";
+      try { stashData = e.dataTransfer.getData("application/x-frameronin-stash-url") || e.dataTransfer.getData("text/ff-stash") || ""; } catch (err) {}
       if (stashData) {
         var hit = false;
         stashData.split("\n").forEach(function (u) {

@@ -45,7 +45,10 @@
     { id: "npc",       route: "#/npc",       icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
     { id: "terrain",   route: "#/terrain",   icon: "map",    key: "", size: "sm", enabled: true, cat: "res" },
     { id: "hd2d",      route: "#/hd2d",      icon: "hd2d",   key: "", size: "sm", enabled: true, cat: "res" },
-    { id: "ps2",       route: "#/onlineps",  icon: "ps",     key: "", size: "sm", enabled: true, cat: "res" }
+    { id: "ps2",       route: "#/onlineps",  icon: "ps",     key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "tut",       route: "#/tut",       icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "wuxia",     route: "#/wuxia",     icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "training",  route: "#/training",  icon: "ai",     key: "", size: "sm", enabled: true, cat: "res" }
   ];
 
   var CATS = ["ai", "tools", "pro", "res"];
@@ -63,11 +66,16 @@
     var theme = localStorage.getItem("ff.theme") || "light";
     document.documentElement.setAttribute("data-theme", theme);
   }
+  /* 6 套主题轮换（对齐原站：明亮纸白/经典废土/Gemini蓝紫/午夜深蓝/森林青绿/中国红） */
+  var THEMES = ["light", "dark", "gemini", "midnight", "forest", "china"];
+  var THEME_LABELS = { light: "明亮纸白", dark: "经典废土", gemini: "Gemini 蓝紫", midnight: "午夜深蓝", forest: "森林青绿", china: "中国红" };
   function toggleTheme() {
     var cur = document.documentElement.getAttribute("data-theme") || "light";
-    var next = cur === "light" ? "dark" : "light";
+    var idx = THEMES.indexOf(cur);
+    var next = THEMES[(idx + 1) % THEMES.length];
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("ff.theme", next);
+    FF.Toast.show("主题：" + (THEME_LABELS[next] || next), "ok");
   }
 
   function initLang() {
@@ -149,8 +157,9 @@
     });
     document.addEventListener("drop", function (e) {
       depth = 0;
-      // 暂存拖出（text/ff-stash = dataURL）→ 优先送当前页 onDrop/onPaste
-      var stashUrl = e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData("text/ff-stash");
+      // 暂存拖出（原站 MIME application/x-frameronin-stash-url；兼容 text/ff-stash）
+      var stashUrl = "";
+      try { stashUrl = e.dataTransfer.getData("application/x-frameronin-stash-url") || e.dataTransfer.getData("text/ff-stash") || ""; } catch (err) {}
       if (stashUrl && /^data:image\//.test(stashUrl)) {
         e.preventDefault();
         if (currentView && typeof currentView.onDrop === "function") currentView.onDrop(stashUrl);
@@ -685,7 +694,10 @@
     "#/npc": function (q) { return FF.Tools.npcplugin(q); },
     "#/terrain": function (q) { return FF.Tools.terrain(q); },
     "#/hd2d": function (q) { return FF.Tools.hd2d(q); },
-    "#/onlineps": function (q) { return FF.Tools.onlineps(q); }
+    "#/onlineps": function (q) { return FF.Tools.onlineps(q); },
+    "#/tut": function (q) { return FF.Tools.tut(q); },
+    "#/wuxia": function (q) { return FF.Tools.wuxia(q); },
+    "#/training": function (q) { return FF.Tools.training(q); }
   };
 
   var currentCleanup = null;

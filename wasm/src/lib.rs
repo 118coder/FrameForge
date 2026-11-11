@@ -119,6 +119,51 @@ pub extern "C" fn ff_erode_alpha(ptr: *mut u8, w: u32, h: u32, passes: u32) -> i
 }
 
 // ---------------------------------------------------------------------------
+// 种子点连通域清除（对齐 v5.0 superEraser）：从 seed 出发 4 邻接泛洪，
+// 命中条件 (dR)^2+(dG)^2+(dB)^2 <= tol^2；命中像素 alpha=0（蓝图 conditionalSuperEraser）
+// ---------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn ff_flood_erase(ptr: *mut u8, w: u32, h: u32, seed_x: u32, seed_y: u32, tol: f64) -> i32 {
+    if w == 0 || h == 0 { return -1; }
+    let wu = w as usize;
+    let hu = h as usize;
+    let sx = seed_x as usize; let sy = seed_y as usize;
+    if sx >= wu || sy >= hu { return -2; }
+    let n = (w * h * 4) as usize;
+    let buf = input_mut(ptr, n as u32);
+    let s = (sy * wu + sx) * 4;
+    let (sr, sg, sb) = (buf[s] as f64, buf[s + 1] as f64, buf[s + 2] as f64);
+    let tol2 = tol * tol;
+    let total = wu * hu;
+    let mut visited = vec![false; total];
+    let mut stack: Vec<usize> = Vec::with_capacity(4096);
+    let start = sy * wu + sx;
+    visited[start] = true;
+    stack.push(start);
+    while let Some(idx) = stack.pop() {
+        let i = idx * 4;
+        if buf[i + 3] == 0 {
+            // 已透明像素继续扩散（整片连通背景）
+        } else {
+            let dr = buf[i] as f64 - sr;
+            let dg = buf[i + 1] as f64 - sg;
+            let db = buf[i + 2] as f64 - sb;
+            if dr * dr + dg * dg + db * db > tol2 { continue; }
+            buf[i + 3] = 0;
+            buf[i] = 0; buf[i + 1] = 0; buf[i + 2] = 0;
+        }
+        let x = idx % wu;
+        let y = idx / wu;
+        if x > 0 && !visited[idx - 1] { visited[idx - 1] = true; stack.push(idx - 1); }
+        if x + 1 < wu && !visited[idx + 1] { visited[idx + 1] = true; stack.push(idx + 1); }
+        if y > 0 && !visited[idx - wu] { visited[idx - wu] = true; stack.push(idx - wu); }
+        if y + 1 < hu && !visited[idx + wu] { visited[idx + wu] = true; stack.push(idx + wu); }
+    }
+    0
+}
+
+// ---------------------------------------------------------------------------
 // 贴边硬削（对齐 v5.0 Kz）：仅透明边界逐层削 22 alpha；双背景「边缘收缩」/去水印清边用
 // passes = min(56, round(值/100*56))
 // ---------------------------------------------------------------------------

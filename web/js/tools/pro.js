@@ -125,7 +125,8 @@
       // 原站支持从暂存拖入
       dz.addEventListener("dragover", function (e) { e.preventDefault(); });
       dz.addEventListener("drop", function (e) {
-        var sd = e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData("text/ff-stash");
+        var sd = "";
+        try { sd = e.dataTransfer.getData("application/x-frameronin-stash-url") || e.dataTransfer.getData("text/ff-stash") || ""; } catch (err) {}
         if (!sd) return;
         e.preventDefault();
         sd.split("\n").forEach(function (u) {

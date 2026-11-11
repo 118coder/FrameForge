@@ -121,6 +121,19 @@ var OPS = {
     return out;
   },
 
+  floodErase: function (p, xfer) {
+    // 原站 superEraser：种子点连通域清除 (dR^2+dG^2+dB^2<=tol^2)
+    var n = p.w * p.h * 4;
+    var src = new Uint8Array(p.buf);
+    var ptr = allocAndCopy(src);
+    var rc = wasmInst.exports.ff_flood_erase(ptr, p.w, p.h, p.seedX, p.seedY, p.tol);
+    var out = new Uint8Array(wasmInst.exports.memory.buffer, ptr, n).slice();
+    freeBuf(ptr, n);
+    if (rc !== 0) throw new Error("floodErase rc=" + rc);
+    xfer.push(out.buffer);
+    return out;
+  },
+
   shaveAlpha: function (p, xfer) {
     // 原站 alphaFrontierErode / Kz：贴边 frontier 每层 alpha-22
     var n = p.w * p.h * 4;

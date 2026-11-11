@@ -117,6 +117,12 @@
       return run("erodeAlpha", { buf: buf, w: im.width, h: im.height, passes: passes }, [buf])
         .then(function (out) { return buf2im(out, im.width, im.height); });
     },
+    /* 种子点连通域清除（原站 superEraser） */
+    floodErase: function (im, seedX, seedY, tol) {
+      var buf = im.data.buffer.slice(0);
+      return run("floodErase", { buf: buf, w: im.width, h: im.height, seedX: seedX, seedY: seedY, tol: tol }, [buf])
+        .then(function (out) { return buf2im(out, im.width, im.height); });
+    },
     /* 贴边削：frontier 每层 alpha-22（v5.0 Kz / alphaFrontierErode） */
     shaveAlpha: function (im, passes) {
       var buf = im.data.buffer.slice(0);

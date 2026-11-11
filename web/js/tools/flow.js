@@ -457,11 +457,11 @@
         var si = (sy * im.width + sx) * 4;
         var seed = [im.data[si], im.data[si + 1], im.data[si + 2]];
         var tol2 = Number(p.tolerance) || 30;
+        // 原站语义：种子色与白色 targetRGB(255,255,255) 距离 ≤ 容差才执行超级橡皮（种子连通域清除）
         var dr2 = seed[0] - 255, dg2 = seed[1] - 255, db2 = seed[2] - 255;
-        var matches = Math.sqrt(dr2 * dr2 + dg2 * dg2 + db2 * db2) <= tol2 ||
-          (seed[0] === 255 && seed[1] === 255 && seed[2] === 255);
+        var matches = Math.sqrt(dr2 * dr2 + dg2 * dg2 + db2 * db2) <= tol2;
         if (!matches) return Promise.resolve(im);
-        return FF.Wasm.chromaKey(im, { mode: 5, tol: 80, feather: 5, suppress: 0, c1: [0, 0, 0], c2: [0, 0, 0] });
+        return FF.Wasm.floodErase(im, sx, sy, 80);
       }
       case "gridDeleteRow":
       case "gridDeleteCol":
