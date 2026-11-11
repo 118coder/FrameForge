@@ -204,6 +204,335 @@
     card.appendChild(dz);
     card.appendChild(workArea);
 
+    /* ============================================================
+     * 扩展工具（对齐原站 gif 模块）：多图合成单图 / 批量裁剪 / 简易拼接
+     * ============================================================ */
+
+    var tabBar = UI.el("div", { class: "row mt14", style: { gap: "6px", flexWrap: "wrap" } }, []);
+    var panes = [UI.el("div", {}), UI.el("div", { style: { display: "none" } }), UI.el("div", { style: { display: "none" } }), UI.el("div", { style: { display: "none" } })];
+    var tabBtns = [];
+    ["gif.tab.frames", "gif.tab.tosingle", "gif.tab.batchcrop", "gif.tab.stitch"].forEach(function (k, i) {
+      var b = UI.btn(t(k), "btn-outline", function () { show(i); });
+      b.style.fontSize = "12px";
+      tabBtns.push(b);
+      tabBar.appendChild(b);
+    });
+    function show(n) {
+      tabBtns.forEach(function (b, i) { b.className = "btn " + (i === n ? "btn-primary" : "btn-outline"); });
+      panes.forEach(function (p, i) { p.style.display = i === n ? "" : "none"; });
+    }
+    show(0);
+    card.appendChild(tabBar);
+    card.appendChild(panes[1]);
+    card.appendChild(panes[2]);
+    card.appendChild(panes[3]);
+    // pane0 即现有流程（dz + workArea）——移动它们进去
+    panes[0].appendChild(dz);
+    panes[0].appendChild(workArea);
+    card.appendChild(panes[0]);
+    // 修正顺序：frame 工具放最上
+    card.insertBefore(panes[0], tabBar);
+    card.insertBefore(tabBar, panes[1]);
+
+    /* ---------- 多图合成单图（含超级单图拆分 + 裁切） ---------- */
+
+    (function () {
+      var pane = panes[1];
+      var imgs = [];   // {canvas, w, h}
+      var colsIn = UI.el("input", { type: "number", value: "4", min: "1", style: { width: "72px" } });
+      var cT = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var cB = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var cL = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var cR = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var splitC = UI.el("input", { type: "number", value: "4", min: "1", style: { width: "64px" } });
+      var splitR = UI.el("input", { type: "number", value: "4", min: "1", style: { width: "64px" } });
+
+      var grid = UI.el("div", { class: "filmstrip", style: { minHeight: "60px" } });
+      function renderGrid() {
+        grid.innerHTML = "";
+        imgs.forEach(function (g, i) {
+          var th = UI.el("div", { class: "thumb" }, [g.canvas, UI.el("div", { class: "t-idx" }, [String(i + 1)])]);
+          th.addEventListener("dblclick", function () { imgs.splice(i, 1); renderGrid(); });
+          grid.appendChild(th);
+        });
+      }
+      var dzMulti = UI.dropzone({
+        accept: "image/*", multiple: true, main: t("g1.upload"), hint: t("g1.uploadHint"),
+        onFiles: function (files) {
+          Promise.all(Array.from(files).map(function (f) {
+            return UI.fileToImage(f).then(function (r) {
+              var c = UI.makeCanvas(r.img.naturalWidth, r.img.naturalHeight);
+              c.getContext("2d").drawImage(r.img, 0, 0);
+              r.release();
+              return c;
+            });
+          })).then(function (cs) { imgs = imgs.concat(cs); renderGrid(); });
+        }
+      });
+      // 超级单图拆分（透明线切割）
+      var superBtn = UI.btn(t("g1.supersplit"), "btn-outline btn-sm", function () {
+        var inp = UI.el("input", { type: "file", accept: "image/*", style: { display: "none" } });
+        inp.addEventListener("change", function () {
+          UI.fileToImage(inp.files[0]).then(function (r) {
+            var c = UI.makeCanvas(r.img.naturalWidth, r.img.naturalHeight);
+            c.getContext("2d").drawImage(r.img, 0, 0);
+            r.release();
+            var im = c.getContext("2d").getImageData(0, 0, c.width, c.height);
+            var pieces = superSplit(im);
+            imgs = imgs.concat(pieces);
+            renderGrid();
+            FF.Toast.show(t("g1.splitDone").replace("{n}", pieces.length), "ok");
+          });
+        });
+        inp.click();
+      });
+      function superSplit(im) {
+        var w = im.width, h = im.height, d = im.data;
+        var A = 8;
+        // 行空白检测
+        var rowHas = [];
+        for (var y = 0; y < h; y++) {
+          var has = false;
+          for (var x = 0; x < w; x++) {
+            if (d[(y * w + x) * 4 + 3] > A) { has = true; break; }
+          }
+          rowHas.push(has);
+        }
+        var bands = [], s = -1;
+        for (var y2 = 0; y2 < h; y2++) {
+          if (rowHas[y2] && s < 0) s = y2;
+          if ((!rowHas[y2] || y2 === h - 1) && s >= 0) {
+            var e = rowHas[y2] ? y2 + 1 : y2;
+            if (e > s) bands.push([s, e]);
+            s = -1;
+          }
+        }
+        var pieces = [];
+        bands.forEach(function (b) {
+          // 带内列空白检测
+          var colHas = [];
+          for (var x = 0; x < w; x++) {
+            var has2 = false;
+            for (var y = b[0]; y < b[1]; y++) {
+              if (d[(y * w + x) * 4 + 3] > A) { has2 = true; break; }
+            }
+            colHas.push(has2);
+          }
+          var segs = [], s2 = -1;
+          for (var x2 = 0; x2 < w; x2++) {
+            if (colHas[x2] && s2 < 0) s2 = x2;
+            if ((!colHas[x2] || x2 === w - 1) && s2 >= 0) {
+              var e2 = colHas[x2] ? x2 + 1 : x2;
+              if (e2 > s2) segs.push([s2, e2]);
+              s2 = -1;
+            }
+          }
+          segs.forEach(function (sg) {
+            var pw = sg[1] - sg[0], ph = b[1] - b[0];
+            var pc = UI.makeCanvas(pw, ph);
+            pc.getContext("2d").drawImage(
+              UI.imageDataToCanvas(im), sg[0], b[0], pw, ph, 0, 0, pw, ph);
+            pieces.push(pc);
+          });
+        });
+        return pieces;
+      }
+      // 裁切
+      function cropped(c) {
+        var T = +cT.value | 0, B = +cB.value | 0, L = +cL.value | 0, R = +cR.value | 0;
+        if (!T && !B && !L && !R) return c;
+        var w = c.width - L - R, h = c.height - T - B;
+        if (w < 1 || h < 1) return c;
+        var o = UI.makeCanvas(w, h);
+        o.getContext("2d").drawImage(c, L, T, w, h, 0, 0, w, h);
+        return o;
+      }
+      var combineBtn = UI.btn(t("g1.combine"), "btn-primary", function () {
+        if (!imgs.length) { FF.Toast.show(t("g1.needImgs"), "warn"); return; }
+        var N = Math.max(1, +colsIn.value | 0);
+        var rows = Math.ceil(imgs.length / N);
+        var cw = Math.max.apply(null, imgs.map(function (g) { return cropped(g).width; }));
+        var ch = Math.max.apply(null, imgs.map(function (g) { return cropped(g).height; }));
+        var out = UI.makeCanvas(N * cw, rows * ch);
+        var ctx = out.getContext("2d");
+        imgs.forEach(function (g, i) {
+          var cc = cropped(g);
+          // 水平居中，垂直靠下
+          var x = (i % N) * cw + Math.floor((cw - cc.width) / 2);
+          var y = Math.floor(i / N) * ch + (ch - cc.height);
+          ctx.drawImage(cc, x, y);
+        });
+        resultBox.innerHTML = "";
+        resultBox.appendChild(UI.canvasFrame(out));
+        UI.downloadCanvas(out, "combined.png");
+      });
+      var splitBtn = UI.btn(t("g1.split"), "btn-outline", function () {
+        var inp = UI.el("input", { type: "file", accept: "image/*", style: { display: "none" } });
+        inp.addEventListener("change", function () {
+          UI.fileToImage(inp.files[0]).then(function (r) {
+            var c = UI.makeCanvas(r.img.naturalWidth, r.img.naturalHeight);
+            c.getContext("2d").drawImage(r.img, 0, 0);
+            r.release();
+            var C = Math.max(1, +splitC.value | 0), R = Math.max(1, +splitR.value | 0);
+            var cw = Math.floor(c.width / C), chh = Math.floor(c.height / R);
+            var pieces = [];
+            for (var ry = 0; ry < R; ry++) {
+              for (var rx = 0; rx < C; rx++) {
+                var pc = UI.makeCanvas(cw, chh);
+                pc.getContext("2d").drawImage(c, rx * cw, ry * chh, cw, chh, 0, 0, cw, chh);
+                pieces.push(pc);
+              }
+            }
+            imgs = imgs.concat(pieces);
+            renderGrid();
+          });
+        });
+        inp.click();
+      });
+      var resultBox = UI.el("div", { class: "mt14" }, []);
+      pane.appendChild(UI.el("div", { class: "pb-title" }, [t("g1.inputMode")]));
+      pane.appendChild(dzMulti);
+      pane.appendChild(grid);
+      pane.appendChild(UI.el("div", { class: "row mt8", style: { gap: "6px", flexWrap: "wrap" } }, [
+        superBtn, splitBtn,
+        UI.el("span", { class: "hint-text" }, [t("g1.splitRC")]), splitC, splitR
+      ]));
+      pane.appendChild(UI.el("div", { class: "row mt8", style: { gap: "6px", flexWrap: "wrap", alignItems: "center" } }, [
+        UI.el("span", { class: "hint-text" }, [t("g1.cols")]), colsIn,
+        UI.el("span", { class: "hint-text" }, [t("g1.crop")]),
+        UI.el("span", { class: "hint-text" }, ["上"]), cT, UI.el("span", { class: "hint-text" }, ["下"]), cB,
+        UI.el("span", { class: "hint-text" }, ["左"]), cL, UI.el("span", { class: "hint-text" }, ["右"]), cR
+      ]));
+      pane.appendChild(UI.el("div", { class: "mt14" }, [combineBtn]));
+      pane.appendChild(resultBox);
+    })();
+
+    /* ---------- 批量裁剪 ---------- */
+
+    (function () {
+      var pane = panes[2];
+      var imgs = [];
+      var bT = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var bB = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var bL = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var bR = UI.el("input", { type: "number", value: "0", style: { width: "64px" } });
+      var grid = UI.el("div", { class: "filmstrip", style: { minHeight: "60px" } });
+      var dzB = UI.dropzone({
+        accept: "image/*", multiple: true, main: t("g2.upload"), hint: "",
+        onFiles: function (files) {
+          Promise.all(Array.from(files).map(function (f) {
+            return UI.fileToImage(f).then(function (r) {
+              var c = UI.makeCanvas(r.img.naturalWidth, r.img.naturalHeight);
+              c.getContext("2d").drawImage(r.img, 0, 0);
+              r.release();
+              return c;
+            });
+          })).then(function (cs) {
+            imgs = imgs.concat(cs);
+            grid.innerHTML = "";
+            imgs.forEach(function (g, i) {
+              grid.appendChild(UI.el("div", { class: "thumb" }, [g, UI.el("div", { class: "t-idx" }, [String(i + 1)])]));
+            });
+          });
+        }
+      });
+      var run = UI.btn(t("g2.run") + " (ZIP)", "btn-primary", function () {
+        if (!imgs.length) return;
+        var T = +bT.value | 0, B = +bB.value | 0, L = +bL.value | 0, R = +bR.value | 0;
+        var files = [];
+        var done = 0;
+        prog.show(t("common.processing"));
+        imgs.forEach(function (g, i) {
+          var w = g.width - L - R, h = g.height - T - B;
+          if (w < 1 || h < 1) { done++; return; }
+          var o = UI.makeCanvas(w, h);
+          o.getContext("2d").drawImage(g, L, T, w, h, 0, 0, w, h);
+          o.toBlob(function (blob) {
+            var fr = new FileReader();
+            fr.onload = function () {
+              files.push({ name: "crop_" + (i + 1) + ".png", data: new Uint8Array(fr.result) });
+              if (++done === imgs.length) {
+                prog.hide();
+                UI.download(FF.Zip.make(files), "batch_crop.zip");
+              }
+            };
+            fr.readAsArrayBuffer(blob);
+          }, "image/png");
+        });
+      });
+      pane.appendChild(dzB);
+      pane.appendChild(grid);
+      pane.appendChild(UI.el("div", { class: "row mt8", style: { gap: "6px", flexWrap: "wrap" } }, [
+        UI.el("span", { class: "hint-text" }, [t("g2.crop")]),
+        UI.el("span", { class: "hint-text" }, ["上"]), bT, UI.el("span", { class: "hint-text" }, ["下"]), bB,
+        UI.el("span", { class: "hint-text" }, ["左"]), bL, UI.el("span", { class: "hint-text" }, ["右"]), bR, run
+      ]));
+    })();
+
+    /* ---------- 简易拼接（上下/左右/融合叠放） ---------- */
+
+    (function () {
+      var pane = panes[3];
+      var imgs = [];
+      var dirSel = UI.selectRow(t("g3.dir"), [
+        { v: "v", label: t("g3.v") }, { v: "h", label: t("g3.h") }, { v: "overlay", label: t("g3.overlay") }
+      ], "v", {});
+      var grid = UI.el("div", { class: "filmstrip", style: { minHeight: "60px" } });
+      var dzS = UI.dropzone({
+        accept: "image/*", multiple: true, main: t("g3.upload"), hint: "",
+        onFiles: function (files) {
+          Promise.all(Array.from(files).map(function (f) {
+            return UI.fileToImage(f).then(function (r) {
+              var c = UI.makeCanvas(r.img.naturalWidth, r.img.naturalHeight);
+              c.getContext("2d").drawImage(r.img, 0, 0);
+              r.release();
+              return c;
+            });
+          })).then(function (cs) {
+            imgs = imgs.concat(cs);
+            grid.innerHTML = "";
+            imgs.forEach(function (g, i) {
+              grid.appendChild(UI.el("div", { class: "thumb" }, [g, UI.el("div", { class: "t-idx" }, [String(i + 1)])]));
+            });
+          });
+        }
+      });
+      var run = UI.btn(t("g3.run"), "btn-primary", function () {
+        if (!imgs.length) return;
+        var out;
+        if (dirSel.value === "v") {
+          var W = Math.max.apply(null, imgs.map(function (c) { return c.width; }));
+          var TH = imgs.reduce(function (s, c) { return s + c.height; }, 0);
+          out = UI.makeCanvas(W, TH);
+          var ctx = out.getContext("2d");
+          var y = 0;
+          imgs.forEach(function (c) { ctx.drawImage(c, Math.floor((W - c.width) / 2), y); y += c.height; });
+        } else if (dirSel.value === "h") {
+          var H = Math.max.apply(null, imgs.map(function (c) { return c.height; }));
+          var TW = imgs.reduce(function (s, c) { return s + c.width; }, 0);
+          out = UI.makeCanvas(TW, H);
+          var ctx2 = out.getContext("2d");
+          var x = 0;
+          imgs.forEach(function (c) { ctx2.drawImage(c, x, Math.floor((H - c.height) / 2)); x += c.width; });
+        } else {
+          var W2 = Math.max.apply(null, imgs.map(function (c) { return c.width; }));
+          var H2 = Math.max.apply(null, imgs.map(function (c) { return c.height; }));
+          out = UI.makeCanvas(W2, H2);
+          var ctx3 = out.getContext("2d");
+          imgs.forEach(function (c) { ctx3.drawImage(c, 0, 0); });
+        }
+        resultBox.innerHTML = "";
+        resultBox.appendChild(UI.canvasFrame(out));
+        UI.downloadCanvas(out, "stitched.png");
+      });
+      var resultBox = UI.el("div", { class: "mt14" }, []);
+      pane.appendChild(dzS);
+      pane.appendChild(grid);
+      pane.appendChild(dirSel.el);
+      pane.appendChild(UI.el("div", { class: "mt14" }, [run]));
+      pane.appendChild(resultBox);
+    })();
+
     return { root: root };
   };
 })();

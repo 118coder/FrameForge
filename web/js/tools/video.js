@@ -280,7 +280,7 @@
     var p3 = steps.panels[2];
     p3.appendChild(UI.el("div", { class: "hint-text mb8" }, [t("video.pick")]));
     p3.appendChild(stripWrap);
-    p3.appendChild(UI.el("div", { class: "mt14 btn-row" }, [zipBtn, sheetBtn, gifBtn]));
+    p3.appendChild(UI.el("div", { class: "mt14 btn-row" }, [zipBtn, sheetBtn, gifBtn, similarBtn]));
     p3.appendChild(UI.el("div", { class: "param-grid mt14" }, [
       UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("video.cols")]), colsSel.sel]),
       UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("video.delay")]), delayIn]),
@@ -293,6 +293,52 @@
     function activeFrames() {
       return state.frames.filter(function (_, i) { return !state.excluded[i]; });
     }
+
+    /* ---------- 识别相似帧（对齐原站：逐帧找最相似帧并标注） ---------- */
+
+    var similarBtn = UI.btn(t("video.similar"), "btn-ghost", function () {
+      var frames = state.frames;
+      if (frames.length < 2) { FF.Toast.show(t("video.similar.none"), "warn"); return; }
+      // 缩略灰度指纹（32×32）
+      var SIG = 32;
+      var grays = frames.map(function (f) {
+        var src = UI.imageDataToCanvas(new ImageData(new Uint8ClampedArray(f.data), f.w, f.h));
+        var c = UI.makeCanvas(SIG, SIG);
+        var cx = c.getContext("2d");
+        cx.drawImage(src, 0, 0, SIG, SIG);
+        var d = cx.getImageData(0, 0, SIG, SIG).data;
+        var g = new Float64Array(SIG * SIG);
+        for (var i = 0; i < SIG * SIG; i++) {
+          g[i] = (d[i * 4] * 3 + d[i * 4 + 1] * 6 + d[i * 4 + 2]) / 10;
+        }
+        // 去整体亮度
+        var mean = g.reduce(function (a, b) { return a + b; }, 0) / g.length;
+        for (var j = 0; j < g.length; j++) g[j] -= mean;
+        return g;
+      });
+      function dist(a, b) {
+        var s = 0;
+        for (var i = 0; i < a.length; i++) { var df = a[i] - b[i]; s += df * df; }
+        return Math.sqrt(s);
+      }
+      var best = frames.map(function (_, i) {
+        var bi = -1, bd = Infinity;
+        for (var j = 0; j < frames.length; j++) {
+          if (j === i) continue;
+          var dd = dist(grays[i], grays[j]);
+          if (dd < bd) { bd = dd; bi = j; }
+        }
+        return bi;
+      });
+      // 渲染：缩略图角标「最像 n」
+      renderStrip();
+      Array.prototype.forEach.call(strip.el.children, function (th, i) {
+        if (best[i] < 0) return;
+        th.appendChild(UI.el("div", { class: "t-idx", style: { top: "2px", bottom: "auto", background: "var(--accent)" } },
+          [t("video.similar.badge").replace("{n}", String(best[i] + 1))]));
+      });
+      FF.Toast.show(t("video.similar.done").replace("{n}", frames.length), "ok");
+    });
 
     function renderStrip() {
       stripWrap.innerHTML = "";

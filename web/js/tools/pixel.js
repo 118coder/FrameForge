@@ -76,8 +76,8 @@
     var paneWrap = UI.el("div", {}, []);
     var panes = [];
     var tabBtns = [];
-    var TABS = ["block", "merge", "c16", "perfect", "super", "match"];
-    var TAB_NAMES = ["pixel.tab.block", "pixel.tab.merge", "pixel.tab.c16", "pixel.tab.perfect", "pixel.tab.super", "pixel.tab.match"];
+    var TABS = ["block", "merge", "c16", "perfect", "super", "match", "adv"];
+    var TAB_NAMES = ["pixel.tab.block", "pixel.tab.merge", "pixel.tab.c16", "pixel.tab.perfect", "pixel.tab.super", "pixel.tab.match", "pixel.tab.adv"];
     TABS.forEach(function (id, i) {
       var pane = UI.el("div", { style: { display: "none" } }, []);
       panes.push(pane);
@@ -252,6 +252,140 @@
     ]));
     panes[TABS.indexOf("match")].appendChild(matchHint);
     panes[TABS.indexOf("match")].appendChild(UI.el("div", { class: "mt14" }, [matchBtn]));
+
+    /* ========== Tab 7: 高级像素化（网格还原 · 对齐 Proper Pixel Art 思路） ========== */
+    // 算法：行/列不透明度差分自相关估网格间距 → 中位数补全网格 → 格内众色采样 → 输出逻辑分辨率
+
+    (function () {
+      var pane = panes[TABS.indexOf("adv")];
+      var advHint = UI.el("div", { class: "hint-text" }, [t("pixel.adv.hint")]);
+      var advRange = UI.slider(t("pixel.adv.range"), 1, 3, 2, {});
+      var advColors = UI.slider(t("pixel.adv.colors"), 4, 128, 64, {});
+      var advUpscale = UI.slider(t("pixel.adv.scale"), 1, 5, 1, {});
+      var advBtn = UI.btn(t("pixel.adv.go"), "btn-primary", function () {
+        if (!needOrig()) return;
+        var im = advancedPixelate(state.orig, advRange.value);
+        if (!im) { UI.modal("Error", UI.el("p", {}, [t("pixel.adv.fail")])); return; }
+        // 可选调色板量化
+        if (advColors.value < 128) {
+          FF.Wasm.quantize(im, 9, 100, 0, 1, advColors.value).then(function (q) {
+            outputLogic(im, q);
+          });
+        } else outputLogic(im, null);
+        function outputLogic(logicIm, quantized) {
+          var up = advUpscale.value;
+          if (up <= 1) { showResult(quantized || logicIm, t("pixel.tab.adv")); return; }
+          var c1 = UI.imageDataToCanvas(quantized || logicIm);
+          var c2 = UI.makeCanvas(c1.width * up, c1.height * up);
+          var cx = c2.getContext("2d");
+          cx.imageSmoothingEnabled = false;
+          cx.drawImage(c1, 0, 0, c2.width, c2.height);
+          FF.Wasm; // noop
+          showResult(new ImageData(new Uint8ClampedArray(c2.getContext("2d").getImageData(0, 0, c2.width, c2.height).data), c2.width, c2.height), t("pixel.tab.adv") + " ×" + up);
+        }
+      });
+
+      /** 高级像素化：网格检测 + 众色采样 */
+      function advancedPixelate(im, search) {
+        var w = im.width, h = im.height, d = im.data;
+        if (w * h > 36e6) return null;
+        // 1. 估计网格间距：对每列求“与下一列颜色差”的绝对和，峰间距 ≈ 格宽
+        function colDiff() {
+          var arr = new Float64Array(w - 1);
+          for (var x = 0; x < w - 1; x++) {
+            var s = 0;
+            for (var y = 0; y < h; y += Math.max(1, Math.floor(h / 220))) {
+              var i = (y * w + x) * 4, j = i + 4;
+              s += Math.abs(d[i] - d[j]) + Math.abs(d[i + 1] - d[j + 1]) + Math.abs(d[i + 2] - d[j + 2]) + Math.abs(d[i + 3] - d[j + 3]);
+            }
+            arr[x] = s;
+          }
+          return arr;
+        }
+        function rowDiff() {
+          var arr = new Float64Array(h - 1);
+          for (var y = 0; y < h - 1; y++) {
+            var s = 0;
+            for (var x = 0; x < w; x += Math.max(1, Math.floor(w / 220))) {
+              var i = (y * w + x) * 4, j = (y + 1) * w * 4 + x * 4;
+              s += Math.abs(d[i] - d[j]) + Math.abs(d[i + 1] - d[j + 1]) + Math.abs(d[i + 2] - d[j + 2]) + Math.abs(d[i + 3] - d[j + 3]);
+            }
+            arr[y] = s;
+          }
+          return arr;
+        }
+        function estimatePitch(arr) {
+          // 自相关：lag 4..min(w/2, 128)
+          var best = 0, bestLag = 0;
+          var maxLag = Math.min(Math.floor(arr.length / 2), 160);
+          for (var lag = 4; lag <= maxLag; lag++) {
+            var s = 0, n = 0;
+            for (var i = 0; i + lag < arr.length; i++) {
+              s += arr[i] * arr[i + lag];
+              n++;
+            }
+            var score = n ? s / n : 0;
+            if (score > best) { best = score; bestLag = lag; }
+          }
+          return bestLag;
+        }
+        var gw = estimatePitch(colDiff());
+        var gh = estimatePitch(rowDiff());
+        if (!gw || !gh) return null;
+        // 微调：±search 邻域内选“列差总和最大”的相位
+        function refine(pitch, diffArr, len) {
+          var bestPhase = 0, bestScore = -1;
+          for (var ph = 0; ph < pitch; ph++) {
+            var s = 0;
+            for (var p = ph; p < len - 1; p += pitch) s += diffArr[p];
+            if (s > bestScore) { bestScore = s; bestPhase = ph; }
+          }
+          return bestPhase;
+        }
+        var cd = colDiff(), rd = rowDiff();
+        var pw = refine(gw, cd, w), phh = refine(gh, rd, h);
+        var cols = Math.floor((w - pw) / gw), rows = Math.floor((h - phh) / gh);
+        if (cols < 1 || rows < 1) return null;
+        // 2. 格内众色采样（alpha 优先）
+        var out = new ImageData(cols, rows);
+        var od = out.data;
+        var samples = [];
+        for (var cy = 0; cy < rows; cy++) {
+          for (var cx2 = 0; cx2 < cols; cx2++) {
+            samples.length = 0;
+            var x0 = pw + cx2 * gw, y0 = phh + cy * gh;
+            for (var y = y0; y < Math.min(y0 + gh, h); y++) {
+              for (var x = x0; x < Math.min(x0 + gw, w); x++) {
+                var i = (y * w + x) * 4;
+                if (d[i + 3] < 128) continue;
+                samples.push((d[i] >> 3) + "," + (d[i + 1] >> 3) + "," + (d[i + 2] >> 3));
+              }
+            }
+            var di = (cy * cols + cx2) * 4;
+            if (!samples.length) { od[di + 3] = 0; continue; }
+            // 众数
+            var counts = {};
+            samples.forEach(function (s) { counts[s] = (counts[s] || 0) + 1; });
+            var bestK = null, bestN = 0;
+            Object.keys(counts).forEach(function (k) { if (counts[k] > bestN) { bestN = counts[k]; bestK = k; } });
+            var parts = bestK.split(",");
+            od[di] = parts[0] * 8 + 4;
+            od[di + 1] = parts[1] * 8 + 4;
+            od[di + 2] = parts[2] * 8 + 4;
+            od[di + 3] = 255;
+          }
+        }
+        advMeta.textContent = t("pixel.adv.meta").replace("{c}", cols).replace("{r}", rows).replace("{gw}", gw).replace("{gh}", gh);
+        return out;
+      }
+      var advMeta = UI.el("div", { class: "hint-text mt8" }, []);
+      pane.appendChild(advHint);
+      pane.appendChild(advRange.el);
+      pane.appendChild(advColors.el);
+      pane.appendChild(advUpscale.el);
+      pane.appendChild(UI.el("div", { class: "mt14" }, [advBtn]));
+      pane.appendChild(advMeta);
+    })();
 
     /* ---------------- 组装 ---------------- */
 

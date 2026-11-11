@@ -10,27 +10,45 @@
    * ============================================================ */
 
   var MODULES = [
-    { id: "ai",     route: "#/ai",     icon: "ai",      key: "Z", size: "lg", enabled: true, badges: ["badge.new"] },
-    { id: "video",  route: "#/video",  icon: "video",   key: "V", size: "lg", enabled: true },
-    { id: "map",    route: "#/map",    icon: "map",     key: "M", size: "lg", enabled: true, badges: ["badge.friendly"] },
-    { id: "chroma", route: "#/chroma", icon: "scissors", key: "K", size: "lg", enabled: true },
-    { id: "sheet",  route: "#/sheet",  icon: "grid",    key: "S", size: "lg", enabled: true },
-    { id: "gif",    route: "#/gif",    icon: "film",    key: "G", size: "lg", enabled: true },
-    { id: "pixel",  route: "#/pixel",  icon: "pixel",   key: "W", size: "lg", enabled: true, badges: ["badge.onekey"] },
-    { id: "layers", route: "#/layers", icon: "layers",  key: "L", size: "lg", enabled: true },
-    { id: "pro",    route: "#/pro",    icon: "pixel",   key: "R", size: "lg", enabled: true },
-    { id: "chat",   route: "#/chat",   icon: "ai",      key: "C", size: "lg", enabled: true },
-    { id: "pixelplus", route: "#/pixelplus", icon: "pixel", key: "F", size: "sm", enabled: true, dup: true, ref: "pixelplus" },
-    { id: "sheetsplit", route: "#/sheet?tab=split", icon: "grid", key: "", size: "sm", enabled: true, dup: true, ref: "sheet", badges: ["badge.friendly"] },
-    { id: "gifsm",  route: "#/gif",    icon: "film",    key: "",  size: "sm", enabled: true, dup: true, ref: "gif" },
-    { id: "chromasm", route: "#/chroma", icon: "scissors", key: "", size: "sm", enabled: true, dup: true, ref: "chroma" },
-    { id: "layerssm", route: "#/layers", icon: "layers", key: "", size: "sm", enabled: true, dup: true, ref: "layers" },
-    { id: "videosm", route: "#/video",  icon: "video",   key: "",  size: "sm", enabled: true, dup: true, ref: "video" },
-    { id: "tile",   route: "#/tile",   icon: "tile",    key: "",  size: "sm", enabled: true },
-    { id: "flow",   route: "#/flow",   icon: "hd2d",    key: "T", size: "sm", enabled: true, badges: ["badge.new"] },
-    { id: "ps",     route: "",         icon: "ps",      key: "",  size: "lg", enabled: false },
-    { id: "hd2d",   route: "",         icon: "hd2d",    key: "",  size: "lg", enabled: false }
+    /* -- AI 生成区 -- */
+    { id: "freegen", route: "#/freegen", icon: "ai", key: "Z", size: "lg", enabled: true, badges: ["badge.core"], cat: "ai" },
+    { id: "ai",      route: "#/ai",      icon: "ai",  key: "X", size: "lg", enabled: true, badges: ["badge.new"], cat: "ai" },
+    { id: "apiimage", route: "#/apiimage", icon: "ai", key: "", size: "lg", enabled: true, cat: "ai" },
+    { id: "eightdir", route: "#/eightdir", icon: "grid", key: "", size: "lg", enabled: true, badges: ["badge.new"], cat: "ai" },
+    { id: "pixelcreate", route: "#/pixelcreate", icon: "ai", key: "", size: "lg", enabled: true, cat: "ai" },
+    { id: "customactions", route: "#/customactions", icon: "grid", key: "", size: "lg", enabled: true, cat: "ai" },
+    { id: "effects", route: "#/effects", icon: "pixel", key: "", size: "lg", enabled: true, badges: ["badge.free"], cat: "ai" },
+    { id: "uiicons", route: "#/uiicons", icon: "ps",   key: "", size: "lg", enabled: true, cat: "ai" },
+    { id: "potpourri", route: "#/potpourri", icon: "ai", key: "", size: "sm", enabled: true, cat: "ai" },
+    { id: "lab",     route: "#/lab",     icon: "hd2d",  key: "", size: "lg", enabled: true, badges: ["badge.new"], cat: "ai" },
+    /* -- 图像处理区 -- */
+    { id: "video",  route: "#/video",  icon: "video",   key: "V", size: "lg", enabled: true, cat: "tools" },
+    { id: "map",    route: "#/map",    icon: "map",     key: "M", size: "lg", enabled: true, badges: ["badge.friendly"], cat: "tools" },
+    { id: "chroma", route: "#/chroma", icon: "scissors", key: "K", size: "lg", enabled: true, cat: "tools" },
+    { id: "sheet",  route: "#/sheet",  icon: "grid",    key: "S", size: "lg", enabled: true, cat: "tools" },
+    { id: "gif",    route: "#/gif",    icon: "film",    key: "G", size: "lg", enabled: true, cat: "tools" },
+    { id: "pixel",  route: "#/pixel",  icon: "pixel",   key: "W", size: "lg", enabled: true, badges: ["badge.onekey"], cat: "tools" },
+    { id: "layers", route: "#/layers", icon: "layers",  key: "L", size: "lg", enabled: true, cat: "tools" },
+    { id: "pixelplus", route: "#/pixelplus", icon: "pixel", key: "F", size: "lg", enabled: true, cat: "tools" },
+    { id: "tile",   route: "#/tile",   icon: "tile",    key: "",  size: "sm", enabled: true, cat: "tools" },
+    /* -- 效率工具区 -- */
+    { id: "pro",    route: "#/pro",    icon: "pixel",   key: "R", size: "lg", enabled: true, cat: "pro" },
+    { id: "flow",   route: "#/flow",   icon: "hd2d",    key: "T", size: "lg", enabled: true, badges: ["badge.new"], cat: "pro" },
+    { id: "rseprite", route: "#/rseprite", icon: "ps",   key: "E", size: "lg", enabled: true, badges: ["badge.new"], cat: "pro" },
+    { id: "chat",   route: "#/chat",   icon: "ai",      key: "C", size: "lg", enabled: true, cat: "pro" },
+    /* -- 资源与说明区 -- */
+    { id: "guide",     route: "#/guide",     icon: "video",  key: "P", size: "sm", enabled: true, cat: "res" },
+    { id: "assets",    route: "#/assets",    icon: "layers", key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "freechars", route: "#/freechars", icon: "grid",   key: "", size: "sm", enabled: true, badges: ["badge.free"], cat: "res" },
+    { id: "skills2",   route: "#/skills",    icon: "ai",     key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "building",  route: "#/building",  icon: "hd2d",   key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "npc",       route: "#/npc",       icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "terrain",   route: "#/terrain",   icon: "map",    key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "hd2d",      route: "#/hd2d",      icon: "hd2d",   key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "ps2",       route: "#/onlineps",  icon: "ps",     key: "", size: "sm", enabled: true, cat: "res" }
   ];
+
+  var CATS = ["ai", "tools", "pro", "res"];
 
   function t(k) { return FF.I18N.t(k); }
 
@@ -256,12 +274,30 @@
     var app = document.getElementById("app");
     app.innerHTML = "";
     var order = getOrder();
+    var catFilter = localStorage.getItem("ff.cat") || "all";
 
-    // 最近使用
+    /* ---------- ① Hero 行：引导 + 搜索 合并一行 ---------- */
+    var searchInput = UI.el("input", { type: "text", placeholder: t("home.search.ph"), style: { minWidth: "200px", flex: "1" } });
+    var hero = FF.UI.el("div", { class: "home-hero" }, [
+      FF.UI.el("div", { class: "hh-text" }, [
+        FF.UI.el("h3", {}, [t("home.guide.title")]),
+        FF.UI.el("p", {}, [t("home.guide.desc")])
+      ]),
+      FF.UI.el("div", { class: "hh-actions" }, [
+        UI.btn(t("home.guide.btn"), "btn-outline btn-sm", function () { location.hash = "#/guide"; }),
+        (function () {
+          var d = UI.el("div", { class: "search-wrap" });
+          d.innerHTML = '<svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+          d.appendChild(searchInput);
+          return d;
+        })()
+      ])
+    ]);
+
+    /* ---------- ② 最近使用（紧凑单行） ---------- */
     var recent = getRecent();
-    var recentRow = null;
     if (recent.length) {
-      recentRow = UI.el("div", { class: "recent-row" }, [
+      var recentRow = UI.el("div", { class: "recent-row" }, [
         UI.el("span", { class: "recent-label" }, [t("home.recent")])
       ]);
       recent.forEach(function (id) {
@@ -272,67 +308,128 @@
           moduleTitle(m)
         ])).addEventListener("click", function () { location.hash = m.route; });
       });
+      app.appendChild(recentRow);
     }
 
-    // 搜索
-    var searchInput = UI.el("input", { type: "text", placeholder: t("home.search.ph") });
-    var searchWrap = UI.el("div", { class: "search-wrap" }, [
-      (function () {
-        var d = UI.el("div");
-        d.innerHTML = '<svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-        return d.firstElementChild;
-      })(),
-      searchInput
-    ]);
-    searchInput.addEventListener("input", function () {
-      var q = searchInput.value.trim().toLowerCase();
-      app.querySelectorAll("[data-mid]").forEach(function (cardEl) {
-        var m = MODULES.find(function (x) { return x.id === cardEl.dataset.mid; });
-        var hay = (moduleTitle(m) + moduleDesc(m) + (m.key || "")).toLowerCase();
-        cardEl.style.display = (!q || hay.indexOf(q) >= 0) ? "" : "none";
+    /* ---------- ③ 分类筛选 chips（可换行，替代右侧悬浮栏） ---------- */
+    var chipDefs = [{ id: "all", label: t("home.cat.all") }].concat(CATS.map(function (c) {
+      return { id: c, label: t("home.cat." + c) };
+    }));
+    var chips = UI.el("div", { class: "cat-chips", role: "tablist", "aria-label": t("home.cat.all") });
+    function renderChips() {
+      chips.innerHTML = "";
+      chipDefs.forEach(function (cd) {
+        var n = cd.id === "all"
+          ? MODULES.filter(function (m) { return m.enabled; }).length
+          : MODULES.filter(function (m) { return m.enabled && m.cat === cd.id; }).length;
+        var b = UI.el("button", {
+          class: "cat-chip" + (catFilter === cd.id ? " on" : ""),
+          role: "tab", "aria-selected": catFilter === cd.id ? "true" : "false"
+        }, [cd.label + " " + n]);
+        b.addEventListener("click", function () {
+          catFilter = cd.id;
+          localStorage.setItem("ff.cat", catFilter);
+          renderChips();
+          renderSections();
+        });
+        chips.appendChild(b);
       });
-    });
+    }
 
-    var lg = [];
-    var sm = [];
-    order.forEach(function (id) {
-      var m = MODULES.find(function (x) { return x.id === id; });
-      if (!m) return;
-      (m.size === "lg" ? lg : sm).push(m);
-    });
-    // 大卡在前排，占位卡（未启用）在后排
-    lg.sort(function (a, b) { return (a.enabled === b.enabled) ? 0 : (a.enabled ? -1 : 1); });
+    /* ---------- ④ 分组分区渲染 ---------- */
+    var sectionsWrap = UI.el("div", { class: "home-sections" });
+    function cardVisible(m, q) {
+      if (catFilter !== "all" && m.cat !== catFilter) return false;
+      if (q) {
+        var hay = (moduleTitle(m) + moduleDesc(m) + (m.key || "")).toLowerCase();
+        return hay.indexOf(q) >= 0;
+      }
+      return true;
+    }
+    function renderSections() {
+      var q = searchInput.value.trim().toLowerCase();
+      sectionsWrap.innerHTML = "";
+      CATS.forEach(function (cat) {
+        var mods = order
+          .map(function (id) { return MODULES.find(function (x) { return x.id === id; }); })
+          .filter(function (m) { return m && m.cat === cat; });
+        mods.sort(function (a, b) { return (a.enabled === b.enabled) ? 0 : (a.enabled ? -1 : 1); });
+        var visible = mods.filter(function (m) { return cardVisible(m, q); });
+        if (!visible.length) return;
+        var isRes = cat === "res";
+        var sec = UI.el("section", { class: "home-sec" }, [
+          UI.el("div", { class: "module-section-title" }, [
+            UI.el("b", {}, ["▸ "]),
+            t("home.cat." + cat),
+            UI.el("span", { class: "sec-count" }, [String(visible.length)])
+          ])
+        ]);
+        var grid = UI.el("div", { class: isRes ? "grid-res" : "grid-lg" });
+        visible.forEach(function (m) { grid.appendChild(moduleCard(m, isRes)); });
+        sec.appendChild(grid);
+        sectionsWrap.appendChild(sec);
+      });
+      // 搜索无结果提示
+      if (!sectionsWrap.children.length) {
+        sectionsWrap.appendChild(UI.el("div", { class: "hint-text", style: { textAlign: "center", padding: "32px 0" } }, [t("home.search.none")]));
+      }
+    }
+    searchInput.addEventListener("input", renderSections);
 
-    var guide = FF.UI.el("div", { class: "guide-banner" }, [
-      FF.UI.el("div", {}, [
-        FF.UI.el("h3", {}, [t("home.guide.title")]),
-        FF.UI.el("p", {}, [t("home.guide.desc")])
-      ]),
-      FF.UI.el("button", {
-        class: "btn btn-outline btn-sm",
-        onclick: function () { showHelp(); }
-      }, [t("home.guide.btn")])
-    ]);
+    /* ---------- 卡片（支持资源区轻量横排样式） ---------- */
+    function moduleCard(m, isRes) {
+      var badges = (m.badges || []).map(function (b) {
+        return FF.UI.el("span", { class: "badge outline" }, [t(b)]);
+      });
+      var card = FF.UI.el("div", {
+        class: (isRes ? "card-link" : "card") +
+          (m.enabled ? " clickable" : " disabled") + (customizing ? " customizing" : ""),
+        draggable: customizing ? "true" : "false",
+        dataset: { mid: m.id }
+      }, [
+        customizing ? FF.UI.el("div", { class: "drag-handle" }, [FF.UI.el("span"), FF.UI.el("span"), FF.UI.el("span")]) : null,
+        m.key ? FF.UI.el("div", { class: "card-kbd" }, [m.key]) : null,
+        FF.UI.el("div", { class: isRes ? "cl-icon" : "card-icon" }, [FF.UI.icon(m.icon)]),
+        FF.UI.el("div", { class: isRes ? "cl-body" : "cl-body" }, [
+          FF.UI.el("div", { class: "card-title" }, [moduleTitle(m)]),
+          FF.UI.el("div", { class: "card-desc" }, [moduleDesc(m)])
+        ]),
+        m.enabled && badges.length ? FF.UI.el("div", { class: "card-badges" }, badges) : null,
+        !m.enabled ? FF.UI.el("div", { class: "card-badges" }, [FF.UI.el("span", { class: "badge" }, [t("home.wip")])]) : null
+      ]);
+      if (m.enabled && !customizing) {
+        card.addEventListener("click", function () { location.hash = m.route; });
+      }
+      if (customizing) {
+        card.addEventListener("dragstart", function (e) {
+          card.classList.add("dragging");
+          e.dataTransfer.setData("text/plain", m.id);
+        });
+        card.addEventListener("dragend", function () { card.classList.remove("dragging"); });
+        card.addEventListener("dragover", function (e) { e.preventDefault(); });
+        card.addEventListener("drop", function (e) {
+          e.preventDefault();
+          var srcId = e.dataTransfer.getData("text/plain");
+          if (!srcId || srcId === m.id) return;
+          var src = MODULES.find(function (x) { return x.id === srcId; });
+          if (!src || src.cat !== m.cat) return; // 只允许同分区内排序
+          var order2 = getOrder();
+          var si = order2.indexOf(srcId);
+          var di = order2.indexOf(m.id);
+          order2.splice(si, 1);
+          order2.splice(di, 0, srcId);
+          localStorage.setItem("ff.order", JSON.stringify(order2));
+          renderHome();
+        });
+      }
+      return card;
+    }
 
-    var title = FF.UI.el("div", { class: "module-section-title" }, [
-      FF.UI.el("b", {}, ["▸ "]), t("home.section")
-    ]);
-
-    var gridLg = FF.UI.el("div", { class: "grid-lg" });
-    lg.forEach(function (m) { gridLg.appendChild(moduleCard(m)); });
-
-    var gridSm = FF.UI.el("div", { class: "grid-sm" });
-    sm.forEach(function (m) { gridSm.appendChild(moduleCard(m)); });
-
+    /* ---------- ⑤ 自定义排序栏 ---------- */
     var customizeBtn = FF.UI.btn(
       customizing ? t("home.customize.done") : t("home.customize"),
       customizing ? "btn-primary" : "btn-ghost",
-      function () {
-        customizing = !customizing;
-        if (!customizing) { /* 退出时保持 */ }
-        renderHome();
-      },
-      customizing ? null : null
+      function () { customizing = !customizing; renderHome(); }
     );
     var resetBtn = FF.UI.btn(t("home.reset"), "btn-ghost btn-sm", function () {
       localStorage.removeItem("ff.order");
@@ -344,13 +441,20 @@
       customizing ? FF.UI.el("div", { class: "hint" }, [t("home.customize.hint")]) : null
     ]);
 
-    app.appendChild(guide);
-    if (recentRow) app.appendChild(recentRow);
-    app.appendChild(searchWrap);
-    app.appendChild(title);
-    app.appendChild(gridLg);
-    app.appendChild(gridSm);
+    /* ---------- 组装 ---------- */
+    app.appendChild(hero);
+    renderChips();
+    app.appendChild(chips);
+    app.appendChild(sectionsWrap);
+    renderSections();
     app.appendChild(bar);
+
+    /* 公告条（顶部） */
+    var notice = FF.UI.el("div", { class: "home-notice" }, [
+      FF.UI.el("span", {}, ["🍌 " + t("home.notice")]),
+      FF.UI.el("button", { class: "btn-ghost btn-xs", onclick: function () { notice.remove(); } }, ["✕"])
+    ]);
+    app.insertBefore(notice, app.firstChild);
   }
 
   /* ============================================================
@@ -553,7 +657,26 @@
     "#/chat": function (q) { return FF.Tools.chat(q); },
     "#/pro": function (q) { return FF.Tools.pro(q); },
     "#/tile": function (q) { return FF.Tools.tile(q); },
-    "#/flow": function (q) { return FF.Tools.flow(q); }
+    "#/flow": function (q) { return FF.Tools.flow(q); },
+    "#/freegen": function (q) { return FF.Tools.freegen(q); },
+    "#/apiimage": function (q) { return FF.Tools.apiimage(q); },
+    "#/eightdir": function (q) { return FF.Tools.eightdir(q); },
+    "#/pixelcreate": function (q) { return FF.Tools.pixelcreate(q); },
+    "#/customactions": function (q) { return FF.Tools.customactions(q); },
+    "#/effects": function (q) { return FF.Tools.effects(q); },
+    "#/uiicons": function (q) { return FF.Tools.uiicons(q); },
+    "#/potpourri": function (q) { return FF.Tools.potpourri(q); },
+    "#/lab": function (q) { return FF.Tools.lab(q); },
+    "#/rseprite": function (q) { return FF.Tools.rseprite(q); },
+    "#/assets": function (q) { return FF.Tools.assets(q); },
+    "#/skills": function (q) { return FF.Tools.skills(q); },
+    "#/guide": function (q) { return FF.Tools.guide(q); },
+    "#/freechars": function (q) { return FF.Tools.freechars(q); },
+    "#/building": function (q) { return FF.Tools.building(q); },
+    "#/npc": function (q) { return FF.Tools.npcplugin(q); },
+    "#/terrain": function (q) { return FF.Tools.terrain(q); },
+    "#/hd2d": function (q) { return FF.Tools.hd2d(q); },
+    "#/onlineps": function (q) { return FF.Tools.onlineps(q); }
   };
 
   var currentCleanup = null;

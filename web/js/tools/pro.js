@@ -27,12 +27,15 @@
     var sk = UI.pageSkeleton("mod.pro.t", "mod.pro.d", null);
     var root = sk.root, card = sk.card;
 
-    var tabBar = UI.el("div", { class: "row mb14", style: { gap: "6px" } }, []);
-    var NAMES = ["pro.tab.scale", "pro.tab.unify", "pro.tab.slice", "pro.tab.adjust"];
+    var tabBar = UI.el("div", { class: "row mb14", style: { gap: "6px", flexWrap: "wrap" } }, []);
+    var NAMES = ["pro.tab.scale", "pro.tab.unify", "pro.tab.slice", "pro.tab.adjust",
+      "pp.tab.crop", "pp.tab.expshrink", "pp.tab.isoskew", "pp.tab.scatter", "pp.tab.largesplit",
+      "pp.tab.dupframes", "pp.tab.seqcompress", "pp.tab.audio", "pp.tab.flow"];
     var panes = NAMES.map(function () { return UI.el("div", { style: { display: "none" } }, []); });
     var paneWrap = UI.el("div", {}, []);
     var btns = NAMES.map(function (k, i) {
       var b = UI.btn(t(k), "btn-outline", function () { show(i); });
+      b.style.fontSize = "12px";
       tabBar.appendChild(b);
       paneWrap.appendChild(panes[i]);
       return b;
@@ -40,6 +43,19 @@
     function show(n) {
       btns.forEach(function (b, i) { b.className = "btn " + (i === n ? "btn-primary" : "btn-outline"); });
       panes.forEach(function (p, i) { p.style.display = i === n ? "" : "none"; });
+    }
+
+    /* RoninPro 扩展工具（proplus.js 提供） */
+    if (FF.ProPlus) {
+      FF.ProPlus.simpleCrop(panes[4]);
+      FF.ProPlus.expandShrink(panes[5]);
+      FF.ProPlus.isoSkew(panes[6]);
+      FF.ProPlus.scatterSlice(panes[7]);
+      FF.ProPlus.largeSplit(panes[8]);
+      FF.ProPlus.dupFrames(panes[9]);
+      FF.ProPlus.seqCompress(panes[10]);
+      FF.ProPlus.audioCompress(panes[11]);
+      FF.ProPlus.flowInterp(panes[12]);
     }
 
     function resultBox(pane, title) {
