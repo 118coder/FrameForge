@@ -157,10 +157,33 @@
       draw();
     }, { passive: false });
     stageWrap.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    // 落卡（URL → 卡片），供拖放/暂存拖出/粘贴共用
+    function addCardUrl(url) {
+      var img = new Image();
+      img.onload = function () {
+        cards.push({ id: ++seq, url: url, img: img, w: 240, h: Math.round(240 * img.naturalHeight / img.naturalWidth), x: 0, y: 0, role: null, z: seq });
+        draw();
+      };
+      img.src = url;
+    }
     // 拖入图片
     stageWrap.addEventListener("dragover", function (e) { e.preventDefault(); });
     stageWrap.addEventListener("drop", function (e) {
       e.preventDefault();
+      // 暂存拖出（text/ff-stash = dataURL 列表）
+      var stashData = e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData("text/ff-stash");
+      if (stashData) {
+        var hit = false;
+        stashData.split("\n").forEach(function (u) {
+          u = u.trim();
+          if (/^data:image\//.test(u)) { addCardUrl(u); hit = true; }
+        });
+        if (!hit) {
+          var files2 = e.dataTransfer.files;
+          if (files2) Array.prototype.forEach.call(files2, function (f) { if (/image\//.test(f.type)) addImageFile(f); });
+        }
+        return;
+      }
       var files = e.dataTransfer && e.dataTransfer.files;
       if (!files) return;
       Array.prototype.forEach.call(files, function (f) {
@@ -435,16 +458,17 @@
 
     var view = {
       root: root,
-      onPaste: function (url) {
-        var img = new Image();
-        img.onload = function () {
-          cards.push({ id: ++seq, url: url, img: img, w: 240, h: Math.round(240 * img.naturalHeight / img.naturalWidth), x: 0, y: 0, role: null, z: seq });
-          draw();
-        };
-        img.src = url;
-      },
+      onPaste: function (url) { addCardUrl(url); },
       cleanup: function () { document.removeEventListener("keydown", onKey); }
     };
+    // 跨页提示词传递（特效库/大杂烩/rpgall → 自由生图）
+    try {
+      var tp = sessionStorage.getItem("ff.transferPrompt");
+      if (tp) {
+        promptIn.value = tp;
+        sessionStorage.removeItem("ff.transferPrompt");
+      }
+    } catch (e) { /* noop */ }
     // 初始渲染
     setTimeout(function () { draw(); }, 0);
     return view;

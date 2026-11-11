@@ -147,13 +147,14 @@
     var ppManual = UI.switchRow(t("pixel.pp.manual"), false, function (v) {
       ppGrid.style.display = v ? "" : "none";
     });
-    var ppCols = UI.el("input", { type: "number", value: "16", min: "1", max: "512", style: { width: "80px" } });
-    var ppRows = UI.el("input", { type: "number", value: "16", min: "1", max: "512", style: { width: "80px" } });
+    var ppCols = UI.el("input", { type: "number", value: "32", min: "1", max: "512", style: { width: "80px" } });
+    var ppRows = UI.el("input", { type: "number", value: "32", min: "1", max: "512", style: { width: "80px" } });
     var ppGrid = UI.el("div", { class: "row mt8", style: { display: "none" } }, [
       ppCols, UI.el("span", { class: "hint-text" }, ["× " + t("sheet.rows")]), ppRows
     ]);
     var ppMinSize = UI.slider(t("pixel.pp.minsize"), 2, 16, 4, {});
     var ppPeak = UI.slider(t("pixel.pp.peak"), 2, 20, 6, {});
+    var ppFixSquare = UI.switchRow(t("pixel.pp.fixsquare"), false, function () {});
     var ppHint = UI.el("div", { class: "hint-text" }, [t("pixel.pp.hint")]);
     var ppBtn = UI.btn(t("pixel.go.perfect"), "btn-primary", function () {
       if (!needOrig()) return;
@@ -163,7 +164,7 @@
           minSize: ppMinSize.value,
           peakWidth: ppPeak.value,
           refineIntensity: 0.25,
-          fixSquare: true,
+          fixSquare: !!ppFixSquare.value,
           gridSize: ppManual.value ? { cols: Number(ppCols.value), rows: Number(ppRows.value) } : null
         };
         showResult(FF.PerfectPixel.getPerfectPixel(state.orig, opts), t("pixel.tab.perfect"));
@@ -173,7 +174,7 @@
         ]));
       }
     });
-    tabPane("perfect", [ppAlgo.el, ppSample.el, ppManual.el, ppGrid, ppMinSize.el, ppPeak.el, ppHint,
+    tabPane("perfect", [ppSample.el, ppManual.el, ppGrid, ppMinSize.el, ppPeak.el, ppFixSquare.el, ppHint,
       UI.el("div", { class: "mt14" }, [ppBtn])]);
 
     /* ========== Tab 5: 超级完美像素 ========== */

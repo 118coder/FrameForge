@@ -36,7 +36,7 @@
     matteContiguous: {
       title: "左上角连通域抠图", color: "#b64a2e",
       params: [
-        { k: "tol", label: "容差", type: "range", min: 0, max: 100, def: 80 },
+        { k: "tol", label: "容差", type: "range", min: 0, max: 150, def: 80 },
         { k: "feather", label: "羽化", type: "range", min: 0, max: 100, def: 5 }
       ]
     },
@@ -90,6 +90,168 @@
         { k: "delRow", label: "删除行序号（-1=不删）", type: "number", def: -1 }
       ]
     },
+    /* ===== 原站 v5 workflow 节点扩充（默认参数与主包 I9 节点表对齐） ===== */
+    crop: {
+      title: "四边裁切", color: "#7a4a8a",
+      params: [
+        { k: "left", label: "左", type: "number", def: 0 },
+        { k: "top", label: "上", type: "number", def: 0 },
+        { k: "right", label: "右", type: "number", def: 0 },
+        { k: "bottom", label: "下", type: "number", def: 0 }
+      ]
+    },
+    padExpand: {
+      title: "四边扩透明", color: "#7a4a8a",
+      params: [
+        { k: "padTop", label: "上", type: "number", def: 0 },
+        { k: "padRight", label: "右", type: "number", def: 0 },
+        { k: "padBottom", label: "下", type: "number", def: 0 },
+        { k: "padLeft", label: "左", type: "number", def: 0 }
+      ]
+    },
+    matteGlobal: {
+      title: "全图色键（左上取色）", color: "#b64a2e",
+      params: [
+        { k: "tolerance", label: "容差", type: "range", min: 0, max: 150, def: 80 },
+        { k: "feather", label: "羽化", type: "range", min: 0, max: 100, def: 5 }
+      ]
+    },
+    mattePostRepair: {
+      title: "去背修复（自合成+清底）", color: "#b64a2e",
+      params: []
+    },
+    alphaFrontierErode: {
+      title: "贴边 alpha 削减", color: "#b64a2e",
+      params: [{ k: "erosion", label: "削减层数", type: "range", min: 0, max: 5, def: 0 }]
+    },
+    conditionalSuperEraser: {
+      title: "条件超级橡皮（种子色匹配才抠）", color: "#b64a2e",
+      params: [
+        { k: "seedX", label: "种子 X", type: "number", def: 0 },
+        { k: "seedY", label: "种子 Y", type: "number", def: 0 },
+        { k: "tolerance", label: "容差", type: "range", min: 0, max: 150, def: 30 }
+      ]
+    },
+    gridDeleteRow: {
+      title: "网格删行", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "行序号", type: "number", def: 1 }
+      ]
+    },
+    gridDeleteCol: {
+      title: "网格删列", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "列序号", type: "number", def: 1 }
+      ]
+    },
+    gridExpandRow: {
+      title: "网格插行", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "行序号", type: "number", def: 1 }
+      ]
+    },
+    gridExpandCol: {
+      title: "网格插列", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "列序号", type: "number", def: 1 }
+      ]
+    },
+    gridFlipRow: {
+      title: "网格行水平翻转", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "行序号", type: "number", def: 1 }
+      ]
+    },
+    gridFlipCol: {
+      title: "网格列垂直翻转", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "列序号", type: "number", def: 1 }
+      ]
+    },
+    gridCopyRow: {
+      title: "网格行复制", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "源行序号", type: "number", def: 1 },
+        { k: "atRow", label: "目标行序号", type: "number", def: 2 }
+      ]
+    },
+    gridCopyCol: {
+      title: "网格列复制", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "源列序号", type: "number", def: 1 },
+        { k: "atCol", label: "目标列序号", type: "number", def: 2 }
+      ]
+    },
+    regionCopy: {
+      title: "区域复制", color: "#7a4a8a",
+      params: [
+        { k: "srcX1", label: "X1", type: "number", def: 0 },
+        { k: "srcY1", label: "Y1", type: "number", def: 0 },
+        { k: "srcX2", label: "X2", type: "number", def: 31 },
+        { k: "srcY2", label: "Y2", type: "number", def: 31 },
+        { k: "offsetX", label: "偏移 X", type: "number", def: 32 },
+        { k: "offsetY", label: "偏移 Y", type: "number", def: 0 },
+        { k: "clearTargetFirst", label: "先清目标区", type: "number", def: 0 }
+      ]
+    },
+    regionDelete: {
+      title: "区域清除", color: "#7a4a8a",
+      params: [
+        { k: "srcX1", label: "X1", type: "number", def: 0 },
+        { k: "srcY1", label: "Y1", type: "number", def: 0 },
+        { k: "srcX2", label: "X2", type: "number", def: 31 },
+        { k: "srcY2", label: "Y2", type: "number", def: 31 }
+      ]
+    },
+    movePixels: {
+      title: "区域移动", color: "#7a4a8a",
+      params: [
+        { k: "x1", label: "X1", type: "number", def: 0 },
+        { k: "y1", label: "Y1", type: "number", def: 0 },
+        { k: "x2", label: "X2", type: "number", def: 31 },
+        { k: "y2", label: "Y2", type: "number", def: 31 },
+        { k: "moveOffsetX", label: "移动 X", type: "number", def: 1 },
+        { k: "moveOffsetY", label: "移动 Y", type: "number", def: 0 }
+      ]
+    },
+    customGridRearrange: {
+      title: "网格重排（格号 1..n，0空，负=水平翻转）", color: "#7a4a8a",
+      params: [
+        { k: "splitCols", label: "源列数", type: "number", def: 2 },
+        { k: "splitRows", label: "源行数", type: "number", def: 2 },
+        { k: "outCols", label: "输出列数", type: "number", def: 2 },
+        { k: "outRows", label: "输出行数", type: "number", def: 2 },
+        { k: "map", label: "格号映射（逗号分隔，行主序）", type: "text", def: "1,2,3,4" }
+      ]
+    },
+    perfectPixel: {
+      title: "完美像素（节点）", color: "#8a6f2b",
+      params: [
+        { k: "minSize", label: "最小格", type: "range", min: 2, max: 16, def: 4 },
+        { k: "peakWidth", label: "峰宽", type: "range", min: 2, max: 20, def: 6 },
+        { k: "refineX100", label: "细化强度 %", type: "range", min: 0, max: 100, def: 25 },
+        { k: "fixSquare", label: "裁方(1/0)", type: "number", def: 0 },
+        { k: "manualGrid", label: "手动网格(1/0)", type: "number", def: 0 },
+        { k: "gridCols", label: "网格列", type: "number", def: 32 },
+        { k: "gridRows", label: "网格行", type: "number", def: 32 }
+      ]
+    },
     output: {
       title: "输出结果", color: "#4a7c59",
       params: []
@@ -109,6 +271,95 @@
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(src, 0, 0, w, h);
     return ctx.getImageData(0, 0, w, h);
+  }
+
+  function clampPx(v, max) { return Math.max(0, Math.min(max - 1, v | 0)); }
+
+  /* 原站 grid 系节点：删/插/翻转/复制 行或列（gCols×gRows 网格语义） */
+  function gridCellOp(type, im, p) {
+    var cols = Math.max(1, Number(p.gCols) || 1), rows = Math.max(1, Number(p.gRows) || 1);
+    var cw = Math.floor(im.width / cols), ch = Math.floor(im.height / rows);
+    var src = UI.imageDataToCanvas(im);
+    var srcCtx = src.getContext("2d");
+    function drawCell(ctx, srcCx, srcCy, dstCx, dstCy, flipX, flipY) {
+      if (srcCx < 0 || srcCy < 0 || srcCx >= cols || srcCy >= rows) return;
+      if (flipX || flipY) {
+        ctx.save();
+        ctx.translate((dstCx + (flipX ? 1 : 0)) * cw, (dstCy + (flipY ? 1 : 0)) * ch);
+        ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+        ctx.drawImage(src, srcCx * cw, srcCy * ch, cw, ch, 0, 0, cw, ch);
+        ctx.restore();
+      } else {
+        ctx.drawImage(src, srcCx * cw, srcCy * ch, cw, ch, dstCx * cw, dstCy * ch, cw, ch);
+      }
+    }
+    function renderGrid(outCols, outRows, fillFn) {
+      var out = UI.makeCanvas(outCols * cw, outRows * ch);
+      var octx = out.getContext("2d");
+      for (var r = 0; r < outRows; r++) {
+        for (var c = 0; c < outCols; c++) {
+          var cell = fillFn(r, c);
+          if (!cell) continue;
+          drawCell(octx, cell[0], cell[1], c, r, cell[2], cell[3]);
+        }
+      }
+      return out.getContext("2d").getImageData(0, 0, out.width, out.height);
+    }
+    switch (type) {
+      case "gridDeleteRow": {
+        var ri = Number(p.rowIndex) | 0;
+        if (ri < 0 || ri >= rows) return im;
+        return renderGrid(cols, rows - 1, function (r, c) {
+          var sr = r < ri ? r : r + 1;
+          return [c, sr, false, false];
+        });
+      }
+      case "gridDeleteCol": {
+        var ci = Number(p.colIndex) | 0;
+        if (ci < 0 || ci >= cols) return im;
+        return renderGrid(cols - 1, rows, function (r, c) {
+          var sc = c < ci ? c : c + 1;
+          return [sc, r, false, false];
+        });
+      }
+      case "gridExpandRow": {
+        var ri2 = Math.max(0, Math.min(rows, Number(p.rowIndex) | 0));
+        return renderGrid(cols, rows + 1, function (r, c) {
+          return [c, r < ri2 ? r : r - 1, false, false];
+        });
+      }
+      case "gridExpandCol": {
+        var ci2 = Math.max(0, Math.min(cols, Number(p.colIndex) | 0));
+        return renderGrid(cols + 1, rows, function (r, c) {
+          return [c < ci2 ? c : c - 1, r, false, false];
+        });
+      }
+      case "gridFlipRow": {
+        var ri3 = Number(p.rowIndex) | 0;
+        return renderGrid(cols, rows, function (r, c) {
+          return [c, r, r === ri3, false];
+        });
+      }
+      case "gridFlipCol": {
+        var ci3 = Number(p.colIndex) | 0;
+        return renderGrid(cols, rows, function (r, c) {
+          return [c, r, false, c === ci3];
+        });
+      }
+      case "gridCopyRow": {
+        var from = Number(p.rowIndex) | 0, to = Number(p.atRow) | 0;
+        return renderGrid(cols, rows, function (r, c) {
+          return [c, r === to ? from : r, false, false];
+        });
+      }
+      case "gridCopyCol": {
+        var fromC = Number(p.colIndex) | 0, toC = Number(p.atCol) | 0;
+        return renderGrid(cols, rows, function (r, c) {
+          return [c === toC ? fromC : c, r, false, false];
+        });
+      }
+    }
+    return im;
   }
 
   function execNode(node, im) {
@@ -167,6 +418,171 @@
           }
         }
         return Promise.resolve(out.getContext("2d").getImageData(0, 0, outCols * cw, outRows * ch));
+      }
+      /* ===== 原站 v5 workflow 节点执行器（纯本地像素操作） ===== */
+      case "crop": {
+        var L = Math.max(0, Number(p.left) || 0), T = Math.max(0, Number(p.top) || 0);
+        var R = Math.max(0, Number(p.right) || 0), B = Math.max(0, Number(p.bottom) || 0);
+        var w2 = im.width - L - R, h2 = im.height - T - B;
+        if (w2 < 1 || h2 < 1) return Promise.reject(new Error("裁切过大"));
+        var c3 = UI.makeCanvas(w2, h2);
+        c3.getContext("2d").drawImage(UI.imageDataToCanvas(im), L, T, w2, h2, 0, 0, w2, h2);
+        return Promise.resolve(c3.getContext("2d").getImageData(0, 0, w2, h2));
+      }
+      case "padExpand": {
+        var pt = Math.max(0, Number(p.padTop) || 0), pr = Math.max(0, Number(p.padRight) || 0);
+        var pb = Math.max(0, Number(p.padBottom) || 0), pl = Math.max(0, Number(p.padLeft) || 0);
+        var w3 = im.width + pl + pr, h3 = im.height + pt + pb;
+        var c4 = UI.makeCanvas(w3, h3);
+        c4.getContext("2d").drawImage(UI.imageDataToCanvas(im), pl, pt);
+        return Promise.resolve(c4.getContext("2d").getImageData(0, 0, w3, h3));
+      }
+      case "matteGlobal": {
+        // 全图色键：键色 = 左上角像素（原站语义），mode3
+        var d0 = im.data;
+        return FF.Wasm.chromaKey(im, {
+          mode: 3, tol: Number(p.tolerance), feather: Number(p.feather),
+          suppress: 0, c1: [d0[0], d0[1], d0[2]], c2: [0, 0, 255]
+        });
+      }
+      case "mattePostRepair":
+        return FF.Wasm.matteRepair(im);
+      case "alphaFrontierErode":
+        // 贴边削（原站 alphaFrontierErode：frontier 每层 -22）
+        return FF.Wasm.shaveAlpha(im, Number(p.erosion) || 0);
+      case "conditionalSuperEraser": {
+        // 读种子点色，RGB 距离 ≤ 容差才执行连通域抠图
+        var sx = Math.max(0, Math.min(im.width - 1, Number(p.seedX) | 0));
+        var sy = Math.max(0, Math.min(im.height - 1, Number(p.seedY) | 0));
+        var si = (sy * im.width + sx) * 4;
+        var seed = [im.data[si], im.data[si + 1], im.data[si + 2]];
+        var tol2 = Number(p.tolerance) || 30;
+        var dr2 = seed[0] - 255, dg2 = seed[1] - 255, db2 = seed[2] - 255;
+        var matches = Math.sqrt(dr2 * dr2 + dg2 * dg2 + db2 * db2) <= tol2 ||
+          (seed[0] === 255 && seed[1] === 255 && seed[2] === 255);
+        if (!matches) return Promise.resolve(im);
+        return FF.Wasm.chromaKey(im, { mode: 5, tol: 80, feather: 5, suppress: 0, c1: [0, 0, 0], c2: [0, 0, 0] });
+      }
+      case "gridDeleteRow":
+      case "gridDeleteCol":
+      case "gridExpandRow":
+      case "gridExpandCol":
+      case "gridFlipRow":
+      case "gridFlipCol":
+      case "gridCopyRow":
+      case "gridCopyCol":
+        return Promise.resolve(gridCellOp(node.type, im, p));
+      case "regionCopy": {
+        var x1 = clampPx(Number(p.srcX1) | 0, im.width), y1 = clampPx(Number(p.srcY1) | 0, im.height);
+        var x2 = clampPx(Number(p.srcX2) | 0, im.width), y2 = clampPx(Number(p.srcY2) | 0, im.height);
+        var rx1 = Math.min(x1, x2), ry1 = Math.min(y1, y2), rw = Math.abs(x2 - x1) + 1, rh = Math.abs(y2 - y1) + 1;
+        var ox = Number(p.offsetX) | 0, oy = Number(p.offsetY) | 0;
+        var out3 = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var d3 = out3.data;
+        if (p.clearTargetFirst) {
+          for (var yy3 = 0; yy3 < rh; yy3++) {
+            for (var xx3 = 0; xx3 < rw; xx3++) {
+              var tx = rx1 + ox + xx3, ty = ry1 + oy + yy3;
+              if (tx < 0 || ty < 0 || tx >= im.width || ty >= im.height) continue;
+              var ti = (ty * im.width + tx) * 4;
+              d3[ti] = d3[ti + 1] = d3[ti + 2] = d3[ti + 3] = 0;
+            }
+          }
+        }
+        for (var yy4 = 0; yy4 < rh; yy4++) {
+          for (var xx4 = 0; xx4 < rw; xx4++) {
+            var sxi = rx1 + xx4, syi = ry1 + yy4;
+            var txi = rx1 + ox + xx4, tyi = ry1 + oy + yy4;
+            if (txi < 0 || tyi < 0 || txi >= im.width || tyi >= im.height) continue;
+            var sIdx = (syi * im.width + sxi) * 4, tIdx = (tyi * im.width + txi) * 4;
+            d3[tIdx] = d3[sIdx]; d3[tIdx + 1] = d3[sIdx + 1]; d3[tIdx + 2] = d3[sIdx + 2]; d3[tIdx + 3] = d3[sIdx + 3];
+          }
+        }
+        return Promise.resolve(out3);
+      }
+      case "regionDelete": {
+        var x1d = clampPx(Number(p.srcX1) | 0, im.width), y1d = clampPx(Number(p.srcY1) | 0, im.height);
+        var x2d = clampPx(Number(p.srcX2) | 0, im.width), y2d = clampPx(Number(p.srcY2) | 0, im.height);
+        var out4 = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var d4 = out4.data;
+        for (var yy5 = Math.min(y1d, y2d); yy5 <= Math.max(y1d, y2d); yy5++) {
+          for (var xx5 = Math.min(x1d, x2d); xx5 <= Math.max(x1d, x2d); xx5++) {
+            var di5 = (yy5 * im.width + xx5) * 4;
+            d4[di5] = d4[di5 + 1] = d4[di5 + 2] = d4[di5 + 3] = 0;
+          }
+        }
+        return Promise.resolve(out4);
+      }
+      case "movePixels": {
+        var x1m = clampPx(Number(p.x1) | 0, im.width), y1m = clampPx(Number(p.y1) | 0, im.height);
+        var x2m = clampPx(Number(p.x2) | 0, im.width), y2m = clampPx(Number(p.y2) | 0, im.height);
+        var rx = Math.min(x1m, x2m), ry = Math.min(y1m, y2m);
+        var rw2 = Math.abs(x2m - x1m) + 1, rh2 = Math.abs(y2m - y1m) + 1;
+        var mx = Number(p.moveOffsetX) | 0, my = Number(p.moveOffsetY) | 0;
+        var out5 = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var src5 = new Uint8ClampedArray(im.data);
+        var d5 = out5.data;
+        // 先清源区，再贴到目标位置
+        for (var yy6 = ry; yy6 < ry + rh2; yy6++) {
+          for (var xx6 = rx; xx6 < rx + rw2; xx6++) {
+            var ci = (yy6 * im.width + xx6) * 4;
+            d5[ci] = d5[ci + 1] = d5[ci + 2] = d5[ci + 3] = 0;
+          }
+        }
+        for (var yy7 = 0; yy7 < rh2; yy7++) {
+          for (var xx7 = 0; xx7 < rw2; xx7++) {
+            var sI = ((ry + yy7) * im.width + (rx + xx7)) * 4;
+            var tx2 = rx + mx + xx7, ty2 = ry + my + yy7;
+            if (tx2 < 0 || ty2 < 0 || tx2 >= im.width || ty2 >= im.height) continue;
+            var tI = (ty2 * im.width + tx2) * 4;
+            d5[tI] = src5[sI]; d5[tI + 1] = src5[sI + 1]; d5[tI + 2] = src5[sI + 2]; d5[tI + 3] = src5[sI + 3];
+          }
+        }
+        return Promise.resolve(out5);
+      }
+      case "customGridRearrange": {
+        var sc = Math.max(1, Number(p.splitCols) | 0), sr = Math.max(1, Number(p.splitRows) | 0);
+        var oc = Math.max(1, Number(p.outCols) | 0), or_ = Math.max(1, Number(p.outRows) | 0);
+        var cw2 = Math.floor(im.width / sc), chh = Math.floor(im.height / sr);
+        var map = String(p.map || "").split(",").map(function (v) { return parseInt(v, 10) || 0; });
+        var out6 = UI.makeCanvas(oc * cw2, or_ * chh);
+        var octx6 = out6.getContext("2d");
+        var src6 = UI.imageDataToCanvas(im);
+        for (var r6 = 0; r6 < or_; r6++) {
+          for (var c6 = 0; c6 < oc; c6++) {
+            var cellNo = map[r6 * oc + c6] || 0;
+            if (!cellNo) continue;
+            var flip = cellNo < 0;
+            var abs = Math.abs(cellNo) - 1;
+            var srcCol = abs % sc, srcRow = Math.floor(abs / sc);
+            if (srcRow >= sr) continue;
+            if (flip) {
+              octx6.save();
+              octx6.translate((c6 + 1) * cw2, r6 * chh);
+              octx6.scale(-1, 1);
+              octx6.drawImage(src6, srcCol * cw2, srcRow * chh, cw2, chh, 0, 0, cw2, chh);
+              octx6.restore();
+            } else {
+              octx6.drawImage(src6, srcCol * cw2, srcRow * chh, cw2, chh, c6 * cw2, r6 * chh, cw2, chh);
+            }
+          }
+        }
+        return Promise.resolve(out6.getContext("2d").getImageData(0, 0, out6.width, out6.height));
+      }
+      case "perfectPixel": {
+        try {
+          var opts = {
+            sampleMethod: "center",
+            minSize: Number(p.minSize) || 4,
+            peakWidth: Number(p.peakWidth) || 6,
+            refineIntensity: (Number(p.refineX100) || 25) / 100,
+            fixSquare: !!Number(p.fixSquare),
+            gridSize: Number(p.manualGrid) ? { cols: Number(p.gridCols) || 32, rows: Number(p.gridRows) || 32 } : null
+          };
+          return Promise.resolve(FF.PerfectPixel.getPerfectPixel(im, opts));
+        } catch (e) {
+          return Promise.reject(e);
+        }
       }
       default:
         return Promise.resolve(im);
@@ -379,6 +795,10 @@
         wrap.appendChild(rIn);
         wrap.appendChild(val);
         row.appendChild(wrap);
+      } else if (p.type === "text") {
+        var tIn = UI.el("input", { type: "text", value: v, style: { width: "100%" } });
+        tIn.addEventListener("change", function () { n.params[p.k] = tIn.value; });
+        row.appendChild(tIn);
       } else {
         var nIn = UI.el("input", { type: "number", value: v });
         nIn.addEventListener("change", function () { n.params[p.k] = Number(nIn.value); });

@@ -1070,3 +1070,23 @@ input[type="color"] {
   background: var(--card-bg); border: 1.2px solid var(--card-border);
   border-radius: 12px; padding: 12px; margin-bottom: 12px;
 }
+
+/* ---------- 模型对话（v5 对齐：侧栏 + 输入区） ---------- */
+.chat-layout { display: grid; grid-template-columns: 1fr 280px; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .chat-layout { grid-template-columns: 1fr; } }
+.chat-side {
+  background: var(--card-bg2); border: 1.2px solid var(--card-border);
+  border-radius: 10px; padding: 12px;
+}
+.chat-side .param-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.chat-side .param-row label { min-width: 42px; font-size: 12.5px; color: var(--text-dim); }
+.mt4 { margin-top: 4px; }
+
+/* 暂存面板双 tab（暂存/本地） */
+.stash-tabs { display: flex; gap: 6px; padding: 0 12px 8px; }
+.stash-tab {
+  flex: 1; padding: 5px 0; font-size: 12px; cursor: pointer;
+  background: var(--input-bg); color: var(--text-dim);
+  border: 1.2px solid var(--input-border); border-radius: 6px;
+}
+.stash-tab.on { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }

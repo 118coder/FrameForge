@@ -117,6 +117,12 @@
       return run("erodeAlpha", { buf: buf, w: im.width, h: im.height, passes: passes }, [buf])
         .then(function (out) { return buf2im(out, im.width, im.height); });
     },
+    /* 贴边削：frontier 每层 alpha-22（v5.0 Kz / alphaFrontierErode） */
+    shaveAlpha: function (im, passes) {
+      var buf = im.data.buffer.slice(0);
+      return run("shaveAlpha", { buf: buf, w: im.width, h: im.height, passes: passes }, [buf])
+        .then(function (out) { return buf2im(out, im.width, im.height); });
+    },
     /* 去背景后处理（v5.0 Yz：4 次自合成 + 低 alpha 清理 + 小域清除） */
     matteRepair: function (im) {
       var buf = im.data.buffer.slice(0);

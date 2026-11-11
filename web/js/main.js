@@ -149,6 +149,15 @@
     });
     document.addEventListener("drop", function (e) {
       depth = 0;
+      // 暂存拖出（text/ff-stash = dataURL）→ 优先送当前页 onDrop/onPaste
+      var stashUrl = e.dataTransfer && e.dataTransfer.getData && e.dataTransfer.getData("text/ff-stash");
+      if (stashUrl && /^data:image\//.test(stashUrl)) {
+        e.preventDefault();
+        if (currentView && typeof currentView.onDrop === "function") currentView.onDrop(stashUrl);
+        else if (currentView && typeof currentView.onPaste === "function") currentView.onPaste(stashUrl);
+        else { sessionStorage.setItem("ff.transfer", stashUrl); FF.Toast.show(t("toast.transferred"), "ok"); }
+        return;
+      }
       var files = e.dataTransfer && e.dataTransfer.files;
       if (!files || !files.length) return;
       // 只拦截图片文件；其他交给页面内 dropzone 自己处理

@@ -121,6 +121,18 @@ var OPS = {
     return out;
   },
 
+  shaveAlpha: function (p, xfer) {
+    // 原站 alphaFrontierErode / Kz：贴边 frontier 每层 alpha-22
+    var n = p.w * p.h * 4;
+    var src = new Uint8Array(p.buf);
+    var ptr = allocAndCopy(src);
+    wasmInst.exports.ff_shave_alpha(ptr, p.w, p.h, p.passes || 1);
+    var out = new Uint8Array(wasmInst.exports.memory.buffer, ptr, n).slice();
+    freeBuf(ptr, n);
+    xfer.push(out.buffer);
+    return out;
+  },
+
   pixelate: function (p, xfer) {
     var n = p.w * p.h * 4;
     var src = new Uint8Array(p.buf);
