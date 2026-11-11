@@ -1,0 +1,13 @@
+# Rust 构建产物
+wasm/target/
+server/target/
+**/*.exe
+**/*.pdb
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
