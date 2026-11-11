@@ -212,6 +212,12 @@
 
       /* ===== 首页改版 ===== */
       "home.notice": "FrameForge v2.0 发布：自由生图画布 / 完美八方向 / 像素实验区 / RoninPro 九项新工具，全部本地运行。",
+      "home.cat.all": "全部",
+      "home.cat.ai": "AI 生成",
+      "home.cat.tools": "图像处理",
+      "home.cat.pro": "效率工具",
+      "home.cat.res": "资源与说明",
+      "home.search.none": "没有匹配的模块，换个关键词试试",
 
       /* ===== 暂存侧栏 ===== */
       "stash.title": "暂存",
@@ -849,6 +855,12 @@
       "home.customize.hint": "Pick your favorite modules, drag handles to reorder your home page.",
       "home.reset": "Reset",
       "home.wip": "WIP",
+      "home.cat.all": "All",
+      "home.cat.ai": "AI Generation",
+      "home.cat.tools": "Image Processing",
+      "home.cat.pro": "Productivity",
+      "home.cat.res": "Resources & Guide",
+      "home.search.none": "No matching modules — try another keyword",
 
       "mod.ai.t": "AI Image Gen",
       "mod.ai.d": "Custom API generation: RPG Maker V1/V1.1/V3, 8-direction, free sequences, all-actions, reskin, scenes and more presets",

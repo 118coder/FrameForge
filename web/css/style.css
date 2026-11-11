@@ -161,24 +161,79 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ---------------- 首页 ---------------- */
 
-.guide-banner {
+/* Hero 行：引导文案 + 搜索 合并 */
+.home-hero {
   background: var(--card-bg);
   border: 1.5px solid var(--card-border);
   border-left: 5px solid var(--accent);
   border-radius: 12px;
-  padding: 16px 22px;
-  margin-bottom: 22px;
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 20px;
+  margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
   box-shadow: var(--card-shadow);
 }
-.guide-banner h3 { font-size: 15.5px; margin-bottom: 4px; }
-.guide-banner p { font-size: 12.5px; color: var(--text-dim); }
+.home-hero h3 { font-size: 15.5px; margin-bottom: 3px; }
+.home-hero p { font-size: 12.5px; color: var(--text-dim); }
+.hh-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hh-actions .search-wrap { margin-bottom: 0; min-width: 220px; }
+
+/* 分类筛选 chips（可换行） */
+.cat-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 18px;
+}
+.cat-chip {
+  padding: 6px 14px; border-radius: 18px;
+  font-size: 12.5px; font-weight: 700;
+  background: var(--card-bg); color: var(--text-dim);
+  border: 1.5px solid var(--card-border); cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.cat-chip:hover { border-color: var(--accent); color: var(--accent); }
+.cat-chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.home-sec { margin-bottom: 10px; }
 
 .module-section-title {
-  font-size: 14px; font-weight: 800; color: var(--text-dim);
+  font-size: 15px; font-weight: 800; color: var(--text);
   letter-spacing: 1px; margin: 6px 2px 12px;
+  display: flex; align-items: center; gap: 8px;
 }
 .module-section-title b { color: var(--accent); }
+.sec-count {
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  background: var(--card-bg2); border: 1px solid var(--card-border);
+  border-radius: 9px; padding: 0 7px; line-height: 17px;
+}
+
+/* 资源与说明区：轻量横排卡 */
+.grid-res {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 20px;
+}
+.card-link {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--card-bg);
+  border: 1.2px solid var(--card-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  position: relative;
+  transition: border-color .15s, transform .15s;
+  user-select: none;
+}
+.card-link.clickable { cursor: pointer; }
+.card-link.clickable:hover { border-color: var(--accent); transform: translateY(-2px); }
+.card-link.disabled { opacity: .55; filter: grayscale(.5); cursor: not-allowed; }
+.card-link .cl-icon { flex-shrink: 0; color: var(--accent); }
+.card-link .cl-icon svg { width: 22px; height: 22px; }
+.card-link .cl-body { flex: 1; min-width: 0; padding-right: 34px; }
+.card-link .card-title { font-size: 13px; margin-bottom: 2px; }
+.card-link .card-desc {
+  font-size: 11.5px; color: var(--text-dim); line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card-link .card-badges { position: absolute; top: 8px; right: 10px; margin: 0; }
+.card-link .card-kbd { top: 6px; right: 8px; }
 
 .grid-lg {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
@@ -572,20 +627,23 @@ input[type="color"] {
 /* ---------------- 响应式 ---------------- */
 
 @media (max-width: 1100px) {
-  .grid-sm { grid-template-columns: repeat(4, 1fr); }
   .grid-lg { grid-template-columns: repeat(3, 1fr); }
+  .grid-res { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 860px) {
   .grid-lg { grid-template-columns: repeat(2, 1fr); }
+  .grid-res { grid-template-columns: repeat(2, 1fr); }
   .preview-wrap.cols2 { grid-template-columns: 1fr; }
   .brand-sub { display: none; }
   .shortcut-panel { display: none; }
+  .stash-toggle { bottom: 18px; }
 }
 @media (max-width: 560px) {
   .grid-lg { grid-template-columns: 1fr; }
-  .grid-sm { grid-template-columns: repeat(2, 1fr); }
+  .grid-res { grid-template-columns: 1fr; }
   .skills-grid { grid-template-columns: 1fr; }
   .page-card { padding: 18px 14px 22px; }
+  .home-hero { flex-direction: column; align-items: stretch; }
 }
 
 /* 滚动条 */
@@ -776,30 +834,11 @@ input[type="color"] {
   font-size: 13px; color: var(--text);
 }
 
-/* 右侧快捷入口栏 */
-.quick-rail {
-  position: fixed; right: 14px; top: 96px; z-index: 60;
-  display: flex; flex-direction: column; gap: 8px; width: 88px;
-}
-.qr-btn {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 10px 4px 8px; border-radius: 12px;
-  background: var(--card-bg); border: 1.5px solid var(--card-border);
-  color: var(--text); cursor: pointer; transition: transform .12s, border-color .12s;
-}
-.qr-btn:hover { transform: translateX(-3px); border-color: var(--accent); }
-.qr-tag {
-  position: absolute; top: -8px; right: 6px;
-  font-size: 9.5px; padding: 1px 5px; border-radius: 6px;
-  background: var(--accent); color: #fff; font-weight: 700;
-}
-.qr-name { font-size: 12px; font-weight: 700; }
-.qr-icon svg { width: 20px; height: 20px; color: var(--accent); }
-@media (max-width: 1100px) { .quick-rail { display: none; } }
+/* 右侧快捷入口栏（已移除：由分类筛选 chips 取代） */
 
-/* 暂存侧栏 */
+/* 暂存侧栏（按钮置于快捷键面板上方，避免悬浮件重叠） */
 .stash-toggle {
-  position: fixed; right: 14px; bottom: 18px; z-index: 70;
+  position: fixed; right: 14px; bottom: 68px; z-index: 70;
   display: flex; align-items: center; gap: 6px;
   padding: 8px 14px; border-radius: 20px; cursor: pointer;
   background: var(--accent); color: #fff; border: none;
