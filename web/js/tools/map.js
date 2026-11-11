@@ -255,9 +255,67 @@
       UI.downloadCanvas(out, "map_stitched.png");
     }
 
+    /* ---------- AI 生成地图（新手友好，对齐原站 MapStitch 生成流程） ---------- */
+
+    var aiBox = UI.el("div", { class: "ai-map-box" }, []);
+    (function () {
+      var typeSel = UI.selectRow(t("mgen.type"), [
+        { v: "village", label: t("mgen.type.village") }, { v: "forest", label: t("mgen.type.forest") },
+        { v: "city", label: t("mgen.type.city") }, { v: "dungeon", label: t("mgen.type.dungeon") },
+        { v: "port", label: t("mgen.type.port") }, { v: "canyon", label: t("mgen.type.canyon") }
+      ], "village", {});
+      var styleSel = UI.selectRow(t("mgen.style"), [
+        { v: "pixel16", label: t("mgen.style.pixel16") }, { v: "hd2d", label: t("mgen.style.hd2d") },
+        { v: "dark", label: t("mgen.style.dark") }, { v: "watercolor", label: t("mgen.style.watercolor") }
+      ], "pixel16", {});
+      var viewSel = UI.selectRow(t("mgen.view"), [
+        { v: "top", label: t("mgen.view.top") }, { v: "iso", label: t("mgen.view.iso") }, { v: "side", label: t("mgen.view.side") }
+      ], "top", {});
+      var ideaIn = UI.el("input", { type: "text", placeholder: t("mgen.idea.ph") });
+      var status = UI.el("div", { class: "hint-text mt8" }, []);
+      var genBtn = UI.btn(t("mgen.go"), "btn-primary", function () {
+        if (!FF.Ai.getKey()) { status.textContent = t("fg.needKey"); status.style.color = "var(--danger)"; return; }
+        var typeTxt = { village: "村庄小镇（房屋、街巷与中央广场）", forest: "森林原野（林间小径、草地与溪流）", city: "城市街区（建筑群、道路与公共空间）", dungeon: "地牢遗迹（相连的房间、走廊与废墟）", port: "海岸港口（海岸线、码头与港湾）", canyon: "山地峡谷（山路、岩壁与桥梁）" }[typeSel.value];
+        var styleTxt = { pixel16: "16-bit 像素风", hd2d: "HD-2D 精致像素风", dark: "暗黑风（45 度等距视角）", watercolor: "水彩手绘风" }[styleSel.value];
+        var viewTxt = viewSel.value === "top" ? "正俯视角（top-down）" : viewSel.value === "iso" ? "45 度等距视角（isometric）" : "横版侧视角";
+        if (styleSel.value === "dark") viewTxt = "45 度等距视角（isometric，暗黑风必须）";
+        var p = "生成一张游戏地图（" + typeTxt + "）。画风：" + styleTxt + "；视角：" + viewTxt + "；" +
+          "画面四边可无缝衔接（边缘地形延续），无人物、无文字、无水印、无 UI。" +
+          (ideaIn.value.trim() ? "补充想法：" + ideaIn.value.trim() : "");
+        genBtn.disabled = true;
+        status.style.color = "";
+        status.textContent = t("fg.generating");
+        FF.Ai.generate(p, null).then(function (r) {
+          status.textContent = t("mgen.done");
+          // 加入画板：以整张图为一个 tile 放置
+          var img = new Image();
+          img.onload = function () {
+            var s = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+            var c = UI.makeCanvas(Math.round(img.naturalWidth * s), Math.round(img.naturalHeight * s));
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            var nx = tiles.length ? Math.max.apply(null, tiles.map(function (tl) { return tl.x + tl.w; })) + 8 : 0;
+            tiles.push({ canvas: c, x: nx, y: 0, w: c.width, h: c.height });
+            draw(); fitView();
+          };
+          img.src = r.dataUrl;
+          FF.Ai.pushHistory({ time: Date.now(), prompt: p.slice(0, 200), dataUrl: r.dataUrl });
+        }).catch(function (e) {
+          status.textContent = e.message === "NO_KEY" ? t("fg.needKey") : t("fg.fail") + e.message;
+          status.style.color = "var(--danger)";
+        }).finally(function () { genBtn.disabled = false; });
+      });
+      aiBox.appendChild(UI.el("div", { class: "pb-title" }, ["▸ " + t("mgen.title")]));
+      aiBox.appendChild(UI.el("div", { class: "hint-text mb8" }, [t("mgen.hint")]));
+      aiBox.appendChild(UI.el("div", { class: "param-grid" }, [typeSel.el, styleSel.el, viewSel.el]));
+      aiBox.appendChild(ideaIn);
+      aiBox.appendChild(UI.el("div", { class: "mt8" }, [genBtn]));
+      aiBox.appendChild(status);
+    })();
+
     /* ---------- 布局 ---------- */
 
     var layout = UI.el("div", {}, [
+      aiBox,
       dz,
       UI.el("div", { class: "param-grid mt14" }, [
         UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("map.snap")]), snapSw.el]),

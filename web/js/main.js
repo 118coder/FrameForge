@@ -10,7 +10,18 @@
    * ============================================================ */
 
   var MODULES = [
-    { id: "ai",     route: "#/ai",     icon: "ai",      key: "Z", size: "lg", enabled: true, badges: ["badge.new"] },
+    /* -- AI 生成区 -- */
+    { id: "freegen", route: "#/freegen", icon: "ai", key: "Z", size: "lg", enabled: true, badges: ["badge.core"] },
+    { id: "ai",      route: "#/ai",      icon: "ai",  key: "X", size: "lg", enabled: true, badges: ["badge.new"] },
+    { id: "apiimage", route: "#/apiimage", icon: "ai", key: "", size: "lg", enabled: true },
+    { id: "eightdir", route: "#/eightdir", icon: "grid", key: "", size: "lg", enabled: true, badges: ["badge.new"] },
+    { id: "pixelcreate", route: "#/pixelcreate", icon: "ai", key: "", size: "lg", enabled: true },
+    { id: "customactions", route: "#/customactions", icon: "grid", key: "", size: "lg", enabled: true },
+    { id: "effects", route: "#/effects", icon: "pixel", key: "", size: "lg", enabled: true, badges: ["badge.free"] },
+    { id: "uiicons", route: "#/uiicons", icon: "ps",   key: "", size: "lg", enabled: true },
+    { id: "potpourri", route: "#/potpourri", icon: "ai", key: "", size: "sm", enabled: true },
+    { id: "lab",     route: "#/lab",     icon: "hd2d",  key: "", size: "lg", enabled: true, badges: ["badge.new"] },
+    /* -- 图像处理区 -- */
     { id: "video",  route: "#/video",  icon: "video",   key: "V", size: "lg", enabled: true },
     { id: "map",    route: "#/map",    icon: "map",     key: "M", size: "lg", enabled: true, badges: ["badge.friendly"] },
     { id: "chroma", route: "#/chroma", icon: "scissors", key: "K", size: "lg", enabled: true },
@@ -27,9 +38,18 @@
     { id: "layerssm", route: "#/layers", icon: "layers", key: "", size: "sm", enabled: true, dup: true, ref: "layers" },
     { id: "videosm", route: "#/video",  icon: "video",   key: "",  size: "sm", enabled: true, dup: true, ref: "video" },
     { id: "tile",   route: "#/tile",   icon: "tile",    key: "",  size: "sm", enabled: true },
+    { id: "rseprite", route: "#/rseprite", icon: "ps",   key: "E", size: "sm", enabled: true, badges: ["badge.new"] },
     { id: "flow",   route: "#/flow",   icon: "hd2d",    key: "T", size: "sm", enabled: true, badges: ["badge.new"] },
-    { id: "ps",     route: "",         icon: "ps",      key: "",  size: "lg", enabled: false },
-    { id: "hd2d",   route: "",         icon: "hd2d",    key: "",  size: "lg", enabled: false }
+    /* -- 资源与说明区 -- */
+    { id: "assets",    route: "#/assets",    icon: "layers", key: "", size: "sm", enabled: true },
+    { id: "skills2",   route: "#/skills",    icon: "ai",     key: "", size: "sm", enabled: true },
+    { id: "guide",     route: "#/guide",     icon: "video",  key: "P", size: "sm", enabled: true },
+    { id: "freechars", route: "#/freechars", icon: "grid",   key: "", size: "sm", enabled: true, badges: ["badge.free"] },
+    { id: "building",  route: "#/building",  icon: "hd2d",   key: "", size: "sm", enabled: true },
+    { id: "npc",       route: "#/npc",       icon: "grid",   key: "", size: "sm", enabled: true },
+    { id: "terrain",   route: "#/terrain",   icon: "map",    key: "", size: "sm", enabled: true },
+    { id: "hd2d",      route: "#/hd2d",      icon: "hd2d",   key: "", size: "sm", enabled: true },
+    { id: "ps2",       route: "#/onlineps",  icon: "ps",     key: "", size: "sm", enabled: true }
   ];
 
   function t(k) { return FF.I18N.t(k); }
@@ -310,9 +330,31 @@
       ]),
       FF.UI.el("button", {
         class: "btn btn-outline btn-sm",
-        onclick: function () { showHelp(); }
+        onclick: function () { location.hash = "#/guide"; }
       }, [t("home.guide.btn")])
     ]);
+
+    /* 右侧快捷入口栏（对齐原站首页快捷入口） */
+    var QUICK = [
+      { id: "freegen", tag: t("badge.core") },
+      { id: "apiimage", tag: t("badge.free") },
+      { id: "lab" },
+      { id: "effects", tag: t("badge.free") },
+      { id: "assets" },
+      { id: "guide" }
+    ];
+    var rail = FF.UI.el("div", { class: "quick-rail" });
+    QUICK.forEach(function (q) {
+      var m = MODULES.find(function (x) { return x.id === q.id; });
+      if (!m) return;
+      var b = FF.UI.el("button", { class: "qr-btn", title: moduleDesc(m) }, [
+        q.tag ? FF.UI.el("span", { class: "qr-tag" }, [q.tag]) : null,
+        FF.UI.el("span", { class: "qr-name" }, [moduleTitle(m)]),
+        FF.UI.el("span", { class: "qr-icon" }, [FF.UI.icon(m.icon)])
+      ]);
+      b.addEventListener("click", function () { location.hash = m.route; });
+      rail.appendChild(b);
+    });
 
     var title = FF.UI.el("div", { class: "module-section-title" }, [
       FF.UI.el("b", {}, ["▸ "]), t("home.section")
@@ -351,6 +393,16 @@
     app.appendChild(gridLg);
     app.appendChild(gridSm);
     app.appendChild(bar);
+
+    /* 公告条（顶部） */
+    var notice = FF.UI.el("div", { class: "home-notice" }, [
+      FF.UI.el("span", {}, ["🍌 " + t("home.notice")]),
+      FF.UI.el("button", { class: "btn-ghost btn-xs", onclick: function () { notice.remove(); } }, ["✕"])
+    ]);
+    app.insertBefore(notice, app.firstChild);
+
+    /* 右侧快捷栏挂载 */
+    app.appendChild(rail);
   }
 
   /* ============================================================
@@ -553,7 +605,26 @@
     "#/chat": function (q) { return FF.Tools.chat(q); },
     "#/pro": function (q) { return FF.Tools.pro(q); },
     "#/tile": function (q) { return FF.Tools.tile(q); },
-    "#/flow": function (q) { return FF.Tools.flow(q); }
+    "#/flow": function (q) { return FF.Tools.flow(q); },
+    "#/freegen": function (q) { return FF.Tools.freegen(q); },
+    "#/apiimage": function (q) { return FF.Tools.apiimage(q); },
+    "#/eightdir": function (q) { return FF.Tools.eightdir(q); },
+    "#/pixelcreate": function (q) { return FF.Tools.pixelcreate(q); },
+    "#/customactions": function (q) { return FF.Tools.customactions(q); },
+    "#/effects": function (q) { return FF.Tools.effects(q); },
+    "#/uiicons": function (q) { return FF.Tools.uiicons(q); },
+    "#/potpourri": function (q) { return FF.Tools.potpourri(q); },
+    "#/lab": function (q) { return FF.Tools.lab(q); },
+    "#/rseprite": function (q) { return FF.Tools.rseprite(q); },
+    "#/assets": function (q) { return FF.Tools.assets(q); },
+    "#/skills": function (q) { return FF.Tools.skills(q); },
+    "#/guide": function (q) { return FF.Tools.guide(q); },
+    "#/freechars": function (q) { return FF.Tools.freechars(q); },
+    "#/building": function (q) { return FF.Tools.building(q); },
+    "#/npc": function (q) { return FF.Tools.npcplugin(q); },
+    "#/terrain": function (q) { return FF.Tools.terrain(q); },
+    "#/hd2d": function (q) { return FF.Tools.hd2d(q); },
+    "#/onlineps": function (q) { return FF.Tools.onlineps(q); }
   };
 
   var currentCleanup = null;
