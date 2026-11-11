@@ -107,8 +107,21 @@
       return run("chromaKey", {
         buf: buf, w: im.width, h: im.height,
         mode: o.mode, tol: o.tol, feather: o.feather, suppress: o.suppress,
+        erode: o.erode || 0,
         c1: o.c1 || [0, 255, 0], c2: o.c2 || [0, 0, 255]
       }, [buf]).then(function (out) { return buf2im(out, im.width, im.height); });
+    },
+    /* 边缘侵蚀：3×3 邻域最小 alpha（v5.0 jt） */
+    erodeAlpha: function (im, passes) {
+      var buf = im.data.buffer.slice(0);
+      return run("erodeAlpha", { buf: buf, w: im.width, h: im.height, passes: passes }, [buf])
+        .then(function (out) { return buf2im(out, im.width, im.height); });
+    },
+    /* 去背景后处理（v5.0 Yz：4 次自合成 + 低 alpha 清理 + 小域清除） */
+    matteRepair: function (im) {
+      var buf = im.data.buffer.slice(0);
+      return run("matteRepair", { buf: buf, w: im.width, h: im.height }, [buf])
+        .then(function (out) { return buf2im(out, im.width, im.height); });
     },
     pixelate: function (im, block) {
       var buf = im.data.buffer.slice(0);

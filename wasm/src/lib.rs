@@ -84,10 +84,143 @@ fn dist(r1: u8, g1: u8, b1: u8, r2: u8, g2: u8, b2: u8) -> f32 {
 }
 
 // ---------------------------------------------------------------------------
-// 色键去背
-// mode: 0=绿幕 1=蓝幕 2=白底(边缘泛洪) 3=自定义色1 4=双重色键(c1+c2)
-// tol/feather/suppress: 0..=100
+// 边缘侵蚀（对齐 v5.0 jt）：3×3 邻域取最小 alpha（含自身），出界邻居忽略
+// passes: 层数；色键/白底页 passes = min(5, round(侵蚀/100*10))
 // ---------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn ff_erode_alpha(ptr: *mut u8, w: u32, h: u32, passes: u32) -> i32 {
+    if w == 0 || h == 0 || passes == 0 { return -0; }
+    let n = (w * h * 4) as usize;
+    let buf = input_mut(ptr, n as u32);
+    let (wu, hu) = (w as usize, h as usize);
+    let total = wu * hu;
+    for _ in 0..passes {
+        let alpha_snap: Vec<u8> = (0..total).map(|i| buf[i * 4 + 3]).collect();
+        for y in 0..hu {
+            for x in 0..wu {
+                let i = y * wu + x;
+                let mut min_a = alpha_snap[i];
+                for dy in -1isize..=1 {
+                    for dx in -1isize..=1 {
+                        if dx == 0 && dy == 0 { continue; }
+                        let nx = x as isize + dx;
+                        let ny = y as isize + dy;
+                        if nx < 0 || ny < 0 || nx >= wu as isize || ny >= hu as isize { continue; }
+                        let na = alpha_snap[ny as usize * wu + nx as usize];
+                        if na < min_a { min_a = na; }
+                    }
+                }
+                buf[i * 4 + 3] = min_a;
+            }
+        }
+    }
+    0
+}
+
+// ---------------------------------------------------------------------------
+// 贴边硬削（对齐 v5.0 Kz）：仅透明边界逐层削 22 alpha；双背景「边缘收缩」/去水印清边用
+// passes = min(56, round(值/100*56))
+// ---------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn ff_shave_alpha(ptr: *mut u8, w: u32, h: u32, passes: u32) -> i32 {
+    if w == 0 || h == 0 { return -1; }
+    let n = (w * h * 4) as usize;
+    let buf = input_mut(ptr, n as u32);
+    let (wu, hu) = (w as usize, h as usize);
+    let total = wu * hu;
+    for _ in 0..passes {
+        let alpha_snap: Vec<u8> = (0..total).map(|i| buf[i * 4 + 3]).collect();
+        let mut changed = false;
+        for y in 0..hu {
+            for x in 0..wu {
+                let i = y * wu + x;
+                let a = alpha_snap[i];
+                if a == 0 { continue; }
+                let mut frontier = x == 0 || y == 0 || x + 1 == wu || y + 1 == hu;
+                if !frontier {
+                    if (x > 0 && alpha_snap[i - 1] <= 10)
+                        || (x + 1 < wu && alpha_snap[i + 1] <= 10)
+                        || (y > 0 && alpha_snap[i - wu] <= 10)
+                        || (y + 1 < hu && alpha_snap[i + wu] <= 10)
+                    {
+                        frontier = true;
+                    }
+                }
+                if frontier {
+                    let na = a.saturating_sub(22);
+                    buf[i * 4 + 3] = na;
+                    if na == 0 {
+                        buf[i * 4] = 0; buf[i * 4 + 1] = 0; buf[i * 4 + 2] = 0;
+                    }
+                    changed = true;
+                }
+            }
+        }
+        if !changed { break; }
+    }
+    0
+}
+
+// ---------------------------------------------------------------------------
+// 色键去背（对齐 frameronin v5.0 ImageMatte：Tt 色键 / Ft 白底 / jt 侵蚀）
+// mode: 0=绿幕 1=蓝幕 2=白底 3=自定义色1 4=双重色键(c1+c2) 5=左上角连通域
+// tol/feather(边缘平滑)/suppress(抑色): 0..=100；erode 由 worker 另行调用 3×3 最小值滤波
+// ---------------------------------------------------------------------------
+
+/// v5.0 色键核心（Tt）：返回 (alpha 0..1, dist)；并就地把 RGB 做两段式抑色
+/// key_dominant: 0=R 主导 1=G 主导 2=B 主导（由键色决定，与 v5.0 分支一致）
+fn chroma_v5(px: &mut [u8], kr: u8, kg: u8, kb: u8, thresh: f32, smooth: f32, sup: f32) {
+    let r = px[0] as f32; let g = px[1] as f32; let b = px[2] as f32;
+    let dr = r - kr as f32; let dg = g - kg as f32; let db = b - kb as f32;
+    let d = (dr * dr + dg * dg + db * db).sqrt();
+    let alpha: f32 = if d <= thresh {
+        0.0
+    } else if d < thresh + smooth {
+        ((d - thresh) / smooth).min(1.0)
+    } else {
+        1.0
+    };
+    if sup > 0.0 && alpha > 0.0 {
+        // 第一段：向灰度去饱和（靠近键色的像素去得更多）
+        let base_mask = (d - thresh).max(0.0);
+        let spill_val = (base_mask / (sup * 120.0).max(1.0)).min(1.0).powf(1.5);
+        let gray = r * 0.2126 + g * 0.7152 + b * 0.0722;
+        let mut rr = gray * (1.0 - spill_val) + r * spill_val;
+        let mut gg = gray * (1.0 - spill_val) + g * spill_val;
+        let mut bb = gray * (1.0 - spill_val) + b * spill_val;
+        // 第二段：主导通道向其余两通道均值收紧
+        let strength = (sup * (1.2 - spill_val * 0.4)).min(1.0);
+        // v5.0 分支条件：kg>=kr && kg>=kb（键色 G 主导）等
+        if kg >= kr && kg >= kb && g > r.max(b) {
+            let limit = (rr + bb) / 2.0;
+            gg -= strength * (gg - limit);
+        }
+        if kb >= kr && kb >= kg && b > r.max(g) {
+            let limit = (rr + gg) / 2.0;
+            bb -= strength * (bb - limit);
+        }
+        px[0] = (rr.round().clamp(0.0, 255.0)) as u8;
+        px[1] = (gg.round().clamp(0.0, 255.0)) as u8;
+        px[2] = (bb.round().clamp(0.0, 255.0)) as u8;
+    }
+    // v5.0：alpha 与原图 alpha 相乘（保留已有透明度）
+    px[3] = (alpha * px[3] as f32).round() as u8;
+}
+
+/// v5.0 白底核心（Ft/WebGL 同款）：w=min(r,g,b)，smoothstep 双边过渡
+fn white_v5(px: &mut [u8], tol: f32, smooth: f32) {
+    let r = px[0] as f32 / 255.0;
+    let g = px[1] as f32 / 255.0;
+    let b = px[2] as f32 / 255.0;
+    let wv = r.min(g).min(b);
+    // GLSL smoothstep(edge0, edge1, x)
+    let t = ((wv - (tol - smooth)) / (2.0 * smooth)).clamp(0.0, 1.0);
+    let s = t * t * (3.0 - 2.0 * t);
+    let a = 1.0 - s;
+    px[3] = (a * px[3] as f32).round() as u8;
+}
 
 #[no_mangle]
 pub extern "C" fn ff_chroma_key(
@@ -98,84 +231,41 @@ pub extern "C" fn ff_chroma_key(
     if w == 0 || h == 0 { return -1; }
     let n = (w * h * 4) as usize;
     let buf = input_mut(ptr, n as u32);
-    let t = (tol as f32 / 100.0) * 180.0 + 8.0;          // 主容差
-    let f = (feather as f32 / 100.0) * 120.0 + 1.0;       // 羽化带宽
+    let thresh = (tol as f32 / 100.0) * 100.0;               // v5.0: tolerance/100*100
+    let smooth = 50.0 + (feather as f32 / 100.0) * 120.0;    // v5.0: 50 + smoothness/100*120
     let sup = suppress as f32 / 100.0;
+    // 白底参数（Ft）：tol = tolerance/100*0.4+0.55; smooth = smoothness/100*0.12+0.02
+    let w_tol = (tol as f32 / 100.0) * 0.4 + 0.55;
+    let w_smooth = (feather as f32 / 100.0) * 0.12 + 0.02;
 
     match mode {
         0 | 1 => {
-            // 绿/蓝幕：全局色度距离 + 抑色（把溢出的 g/b 压回 max(r,b)）
             let (kr, kg, kb) = if mode == 0 { (0u8, 255u8, 0u8) } else { (0u8, 0u8, 255u8) };
             for px in buf.chunks_exact_mut(4) {
-                let (r, g, b, _) = (px[0], px[1], px[2], px[3]);
-                let d = dist(r, g, b, kr, kg, kb);
-                let a = ((d - t) / f).clamp(0.0, 1.0);
-                if a < 1.0 {
-                    let m = r.max(b) as f32; // 非主导通道上限，用于抑色
-                    if mode == 0 && g as f32 > m {
-                        let spill = ((g as f32 - m) * sup) as u8;
-                        px[1] = g.saturating_sub(spill);
-                    } else if mode == 1 && b as f32 > r.max(g) as f32 {
-                        let spill = ((b as f32 - r.max(g) as f32) * sup) as u8;
-                        px[2] = b.saturating_sub(spill);
-                    }
-                    px[3] = (a * 255.0) as u8;
-                }
+                chroma_v5(px, kr, kg, kb, thresh, smooth, sup);
             }
         }
         2 => {
-            // 白底：从四边泛洪，只抠外部连通的白色区域
-            let (w32, h32) = (w as usize, h as usize);
-            let mut removed = vec![false; w32 * h32];
-            let mut stack: Vec<usize> = Vec::with_capacity(1024);
-            for x in 0..w32 {
-                stack.push(x);
-                stack.push((h32 - 1) * w32 + x);
+            for px in buf.chunks_exact_mut(4) {
+                white_v5(px, w_tol, w_smooth);
             }
-            for y in 0..h32 {
-                stack.push(y * w32);
-                stack.push(y * w32 + w32 - 1);
-            }
-            while let Some(i) = stack.pop() {
-                if removed[i] { continue; }
-                let o = i * 4;
-                if dist(buf[o], buf[o + 1], buf[o + 2], 255, 255, 255) > t { continue; }
-                removed[i] = true;
-                let x = i % w32;
-                if x > 0 { stack.push(i - 1); }
-                if x + 1 < w32 { stack.push(i + 1); }
-                if i >= w32 { stack.push(i - w32); }
-                if i + w32 < w32 * h32 { stack.push(i + w32); }
-            }
-            for (i, rm) in removed.iter().enumerate() {
-                let o = i * 4;
-                if *rm {
-                    buf[o + 3] = 0;
-                } else {
-                    // 边缘羽化：靠近白色按比例降 alpha
-                    let d = dist(buf[o], buf[o + 1], buf[o + 2], 255, 255, 255);
-                    if d < t + f {
-                        let a = ((d - t) / f).clamp(0.0, 1.0);
-                        buf[o + 3] = (a * 255.0) as u8;
-                    }
-                }
-            }
-            let _ = sup;
         }
-        3 | 4 => {
-            let keys = if mode == 3 {
-                vec![(r1, g1, b1)]
-            } else {
-                vec![(r1, g1, b1), (r2, g2, b2)]
-            };
+        3 => {
+            for px in buf.chunks_exact_mut(4) {
+                chroma_v5(px, r1, g1, b1, thresh, smooth, sup);
+            }
+        }
+        4 => {
+            // 双重色键：取两键最近距离，按该键做抑色分支
             for px in buf.chunks_exact_mut(4) {
                 let (r, g, b) = (px[0], px[1], px[2]);
-                let mut d = f32::MAX;
-                for k in &keys {
-                    d = d.min(dist(r, g, b, k.0, k.1, k.2));
+                let d1 = dist(r, g, b, r1, g1, b1);
+                let d2 = dist(r, g, b, r2, g2, b2);
+                if d1 <= d2 {
+                    chroma_v5(px, r1, g1, b1, thresh, smooth, sup);
+                } else {
+                    chroma_v5(px, r2, g2, b2, thresh, smooth, sup);
                 }
-                let a = ((d - t) / f).clamp(0.0, 1.0);
-                if a < 1.0 { px[3] = (a * 255.0) as u8; }
             }
         }
         5 => {
@@ -187,7 +277,7 @@ pub extern "C" fn ff_chroma_key(
             while let Some(i) = stack.pop() {
                 if removed[i] { continue; }
                 let o = i * 4;
-                if dist(buf[o], buf[o + 1], buf[o + 2], key.0, key.1, key.2) > t { continue; }
+                if dist(buf[o], buf[o + 1], buf[o + 2], key.0, key.1, key.2) > thresh { continue; }
                 removed[i] = true;
                 let x = i % w32;
                 if x > 0 { stack.push(i - 1); }
@@ -200,7 +290,7 @@ pub extern "C" fn ff_chroma_key(
                 if *rm {
                     buf[o + 3] = 0;
                 } else {
-                    // 羽化仅作用于与被移除区域相邻的像素：内部同色区（不连通）必须保留
+                    // 平滑仅作用于与被移除区域相邻的像素：内部同色区（不连通）必须保留
                     let x = i % w32;
                     let y = i / w32;
                     let near = (x > 0 && removed[i - 1])
@@ -209,8 +299,8 @@ pub extern "C" fn ff_chroma_key(
                         || (y + 1 < h32 && removed[i + w32]);
                     if near {
                         let d = dist(buf[o], buf[o + 1], buf[o + 2], key.0, key.1, key.2);
-                        if d < t + f {
-                            let a = ((d - t) / f).clamp(0.0, 1.0);
+                        if d < thresh + smooth {
+                            let a = ((d - thresh) / smooth).clamp(0.0, 1.0);
                             buf[o + 3] = (a * 255.0) as u8;
                         }
                     }
@@ -759,7 +849,7 @@ pub extern "C" fn ff_double_bg(
     let tol_scale = 0.5 + tolerance as f32 / 100.0;
     let gamma = 0.5 + edge_contrast as f32 / 100.0;
 
-    // 1) 逐像素求 alpha 并 un-premultiply 恢复前景色
+    // 1) 逐像素求 alpha 并 un-premultiply 恢复前景色（v5.0 Gz 原样：基础结果不含清理）
     for i in 0..(w * h) as usize {
         let o = i * 4;
         let (rb, gb, bb) = (blk[o] as f32, blk[o + 1] as f32, blk[o + 2] as f32);
@@ -778,49 +868,9 @@ pub extern "C" fn ff_double_bg(
         }
     }
 
-    // 2) 低 alpha 置零
-    for px in blk.chunks_exact_mut(4) {
-        if px[3] < 51 { px[3] = 0; }
-    }
-
-    // 3) 去小连通域（8 连通，min area 16）
+    // 2) 边缘收缩（v5.0 Kz 同款 frontier shave：22/层，最多 56 层）
     let (wu, hu) = (w as usize, h as usize);
     let total = wu * hu;
-    let mut label = vec![0u32; total];
-    let mut areas: Vec<u32> = vec![0];
-    for i in 0..total {
-        if blk[i * 4 + 3] == 0 || label[i] != 0 { continue; }
-        let id = areas.len() as u32;
-        let mut stack = vec![i];
-        label[i] = id;
-        let mut area = 0u32;
-        while let Some(j) = stack.pop() {
-            area += 1;
-            let x = j % wu;
-            let y = j / wu;
-            for dy in -1isize..=1 {
-                for dx in -1isize..=1 {
-                    if dx == 0 && dy == 0 { continue; }
-                    let nx = x as isize + dx;
-                    let ny = y as isize + dy;
-                    if nx < 0 || ny < 0 || nx >= wu as isize || ny >= hu as isize { continue; }
-                    let k = ny as usize * wu + nx as usize;
-                    if blk[k * 4 + 3] != 0 && label[k] == 0 {
-                        label[k] = id;
-                        stack.push(k);
-                    }
-                }
-            }
-        }
-        areas.push(area);
-    }
-    for i in 0..total {
-        if label[i] != 0 && areas[label[i] as usize] < 16 {
-            blk[i * 4 + 3] = 0;
-        }
-    }
-
-    // 4) 边缘逐层削边（frontier shave 22/层）
     let passes = (erode as usize * 56) / 100;
     for _ in 0..passes {
         let alpha_snap: Vec<u8> = (0..total).map(|i| blk[i * 4 + 3]).collect();
@@ -852,6 +902,86 @@ pub extern "C" fn ff_double_bg(
             }
         }
         if !changed { break; }
+    }
+    0
+}
+
+// ---------------------------------------------------------------------------
+// 去背景后处理（对齐 v5.0 Yz「去背景抠图后修复」）：
+// 1) 4 次 source-over 自合成（增强半透明边缘） 2) alpha<51 清零
+// 3) 8 连通小域清除（minSize 按分辨率 12/16/20）
+// ---------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn ff_matte_repair(ptr: *mut u8, w: u32, h: u32) -> i32 {
+    if w == 0 || h == 0 { return -1; }
+    let n = (w * h * 4) as usize;
+    let buf = input_mut(ptr, n as u32);
+    let total = (w * h) as usize;
+
+    // 1) 4 次自合成（canvas drawImage 4 次等价：source-over 叠 3 次）
+    let base = buf.to_vec();
+    for _ in 0..3 {
+        for i in 0..total {
+            let o = i * 4;
+            let sa = base[o + 3] as f32 / 255.0;
+            let da = buf[o + 3] as f32 / 255.0;
+            let out_a = sa + da * (1.0 - sa);
+            if out_a <= 0.0 {
+                buf[o] = 0; buf[o + 1] = 0; buf[o + 2] = 0; buf[o + 3] = 0;
+                continue;
+            }
+            for c in 0..3 {
+                let sc = base[o + c] as f32 * sa;
+                let dc = buf[o + c] as f32 * da * (1.0 - sa);
+                buf[o + c] = ((sc + dc) / out_a).round().clamp(0.0, 255.0) as u8;
+            }
+            buf[o + 3] = (out_a * 255.0).round().clamp(0.0, 255.0) as u8;
+        }
+    }
+
+    // 2) alpha < 51 清零
+    for px in buf.chunks_exact_mut(4) {
+        if px[3] < 51 {
+            px[0] = 0; px[1] = 0; px[2] = 0; px[3] = 0;
+        }
+    }
+
+    // 3) 8 连通小域清除（v5.0：像素数 >2e6 → 20，>8e5 → 16，否则 12）
+    let (wu, hu) = (w as usize, h as usize);
+    let min_size = if total > 2_000_000 { 20usize } else if total > 800_000 { 16 } else { 12 };
+    let mut label = vec![0u32; total];
+    let mut areas: Vec<u32> = vec![0];
+    for i in 0..total {
+        if buf[i * 4 + 3] == 0 || label[i] != 0 { continue; }
+        let id = areas.len() as u32;
+        let mut stack = vec![i];
+        label[i] = id;
+        let mut area = 0u32;
+        while let Some(j) = stack.pop() {
+            area += 1;
+            let x = j % wu;
+            let y = j / wu;
+            for dy in -1isize..=1 {
+                for dx in -1isize..=1 {
+                    if dx == 0 && dy == 0 { continue; }
+                    let nx = x as isize + dx;
+                    let ny = y as isize + dy;
+                    if nx < 0 || ny < 0 || nx >= wu as isize || ny >= hu as isize { continue; }
+                    let k = ny as usize * wu + nx as usize;
+                    if buf[k * 4 + 3] != 0 && label[k] == 0 {
+                        label[k] = id;
+                        stack.push(k);
+                    }
+                }
+            }
+        }
+        areas.push(area);
+    }
+    for i in 0..total {
+        if label[i] != 0 && (areas[label[i] as usize] as usize) < min_size {
+            buf[i * 4] = 0; buf[i * 4 + 1] = 0; buf[i * 4 + 2] = 0; buf[i * 4 + 3] = 0;
+        }
     }
     0
 }

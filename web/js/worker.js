@@ -86,9 +86,37 @@ var OPS = {
       ptr, p.w, p.h, p.mode, p.tol, p.feather, p.suppress,
       p.c1[0], p.c1[1], p.c1[2], p.c2[0], p.c2[1], p.c2[2]
     );
+    // v5.0：色键/白底侵蚀 = min(5, round(值/100*10)) 层 3×3 最小值滤波
+    if (rc === 0 && p.erode > 0) {
+      var passes = Math.min(5, Math.round(p.erode / 100 * 10));
+      if (passes > 0) wasmInst.exports.ff_erode_alpha(ptr, p.w, p.h, passes);
+    }
     var out = new Uint8Array(wasmInst.exports.memory.buffer, ptr, n).slice();
     freeBuf(ptr, n);
     if (rc !== 0) throw new Error("chromaKey rc=" + rc);
+    xfer.push(out.buffer);
+    return out;
+  },
+
+  matteRepair: function (p, xfer) {
+    var n = p.w * p.h * 4;
+    var src = new Uint8Array(p.buf);
+    var ptr = allocAndCopy(src);
+    var rc = wasmInst.exports.ff_matte_repair(ptr, p.w, p.h);
+    var out = new Uint8Array(wasmInst.exports.memory.buffer, ptr, n).slice();
+    freeBuf(ptr, n);
+    if (rc !== 0) throw new Error("matteRepair rc=" + rc);
+    xfer.push(out.buffer);
+    return out;
+  },
+
+  erodeAlpha: function (p, xfer) {
+    var n = p.w * p.h * 4;
+    var src = new Uint8Array(p.buf);
+    var ptr = allocAndCopy(src);
+    wasmInst.exports.ff_erode_alpha(ptr, p.w, p.h, p.passes || 1);
+    var out = new Uint8Array(wasmInst.exports.memory.buffer, ptr, n).slice();
+    freeBuf(ptr, n);
     xfer.push(out.buffer);
     return out;
   },
