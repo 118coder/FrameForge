@@ -122,7 +122,7 @@
     },
     alphaFrontierErode: {
       title: "贴边 alpha 削减", color: "#b64a2e",
-      params: [{ k: "erosion", label: "削减层数", type: "range", min: 0, max: 5, def: 0 }]
+      params: [{ k: "erosion", label: "削减量 (0-100)", type: "range", min: 0, max: 100, def: 0 }]
     },
     conditionalSuperEraser: {
       title: "条件超级橡皮（种子色匹配才抠）", color: "#b64a2e",
@@ -252,6 +252,40 @@
         { k: "gridRows", label: "网格行", type: "number", def: 32 }
       ]
     },
+    evenSplitStrip: {
+      title: "均分展开为横带", color: "#7a4a8a",
+      params: [
+        { k: "evenCols", label: "列", type: "number", def: 4 },
+        { k: "evenRows", label: "行", type: "number", def: 4 }
+      ]
+    },
+    evenSplitPerCellEdge: {
+      title: "均分+每格扩/裁边", color: "#7a4a8a",
+      params: [
+        { k: "evenCols", label: "列", type: "number", def: 4 },
+        { k: "evenRows", label: "行", type: "number", def: 4 },
+        { k: "cellEdgeMode", label: "模式(0扩1裁)", type: "number", def: 0 },
+        { k: "edgeL", label: "左", type: "number", def: 0 },
+        { k: "edgeT", label: "上", type: "number", def: 0 },
+        { k: "edgeR", label: "右", type: "number", def: 0 },
+        { k: "edgeB", label: "下", type: "number", def: 0 }
+      ]
+    },
+    mergeStrip: {
+      title: "条带重排为网格", color: "#7a4a8a",
+      params: [
+        { k: "mergeCols", label: "列数", type: "number", def: 4 },
+        { k: "frameCount", label: "帧数(0=按frameW)", type: "number", def: 16 },
+        { k: "frameW", label: "帧宽(frameCount=0时)", type: "number", def: 32 }
+      ]
+    },
+    simpleStitchVertical: {
+      title: "拼接（多输入简版：单图复制）", color: "#7a4a8a",
+      params: [
+        { k: "stitchMode", label: "0竖叠/1横排/2叠加", type: "number", def: 0 },
+        { k: "stitchSlotCount", label: "槽位数", type: "number", def: 2 }
+      ]
+    },
     output: {
       title: "输出结果", color: "#4a7c59",
       params: []
@@ -347,15 +381,20 @@
         });
       }
       case "gridCopyRow": {
-        var from = Number(p.rowIndex) | 0, to = Number(p.atRow) | 0;
-        return renderGrid(cols, rows, function (r, c) {
-          return [c, r === to ? from : r, false, false];
+        // 原站 $z：把 rowIndex 行复制插入到 atRow 位置，输出高度 +ch
+        var from = Math.max(0, Math.min(rows - 1, Number(p.rowIndex) | 0));
+        var to = Math.max(0, Math.min(rows, Number(p.atRow) | 0));
+        return renderGrid(cols, rows + 1, function (r, c) {
+          var sr = r < to ? r : (r === to ? from : r - 1);
+          return [c, sr, false, false];
         });
       }
       case "gridCopyCol": {
-        var fromC = Number(p.colIndex) | 0, toC = Number(p.atCol) | 0;
-        return renderGrid(cols, rows, function (r, c) {
-          return [c === toC ? fromC : c, r, false, false];
+        var fromC = Math.max(0, Math.min(cols - 1, Number(p.colIndex) | 0));
+        var toC = Math.max(0, Math.min(cols, Number(p.atCol) | 0));
+        return renderGrid(cols + 1, rows, function (r, c) {
+          var sc = c < toC ? c : (c === toC ? fromC : c - 1);
+          return [sc, r, false, false];
         });
       }
     }
@@ -447,9 +486,12 @@
       }
       case "mattePostRepair":
         return FF.Wasm.matteRepair(im);
-      case "alphaFrontierErode":
-        // 贴边削（原站 alphaFrontierErode：frontier 每层 -22）
-        return FF.Wasm.shaveAlpha(im, Number(p.erosion) || 0);
+      case "alphaFrontierErode": {
+        // 原站 Zz→Kz：passes = min(56, round(erosion/100*56))，每层 frontier alpha-22
+        var itE = Math.min(56, Math.round((Number(p.erosion) || 0) / 100 * 56));
+        if (itE <= 0) return Promise.resolve(im);
+        return FF.Wasm.shaveAlpha(im, itE);
+      }
       case "conditionalSuperEraser": {
         // 读种子点色，RGB 距离 ≤ 容差才执行连通域抠图
         var sx = Math.max(0, Math.min(im.width - 1, Number(p.seedX) | 0));
@@ -461,7 +503,8 @@
         var dr2 = seed[0] - 255, dg2 = seed[1] - 255, db2 = seed[2] - 255;
         var matches = Math.sqrt(dr2 * dr2 + dg2 * dg2 + db2 * db2) <= tol2;
         if (!matches) return Promise.resolve(im);
-        return FF.Wasm.floodErase(im, sx, sy, 80);
+        // 实际容差以节点 tolerance 为准（原站 jz：targetRGB 仅做触发开关）
+        return FF.Wasm.floodErase(im, sx, sy, tol2);
       }
       case "gridDeleteRow":
       case "gridDeleteCol":
@@ -543,7 +586,12 @@
       case "customGridRearrange": {
         var sc = Math.max(1, Number(p.splitCols) | 0), sr = Math.max(1, Number(p.splitRows) | 0);
         var oc = Math.max(1, Number(p.outCols) | 0), or_ = Math.max(1, Number(p.outRows) | 0);
-        var cw2 = Math.floor(im.width / sc), chh = Math.floor(im.height / sr);
+        // 原站 _z：边界式切分（每格 [floor(W*k/n), floor(W*(k+1)/n))，格间可差 1px）
+        function bnd(total, n, k) { return [Math.floor(total * k / n), Math.floor(total * (k + 1) / n)]; }
+        var colB = [], rowB = [];
+        for (var k1 = 0; k1 < sc; k1++) colB.push(bnd(im.width, sc, k1));
+        for (var k2 = 0; k2 < sr; k2++) rowB.push(bnd(im.height, sr, k2));
+        var cw2 = Math.ceil(im.width / sc), chh = Math.ceil(im.height / sr);
         var map = String(p.map || "").split(",").map(function (v) { return parseInt(v, 10) || 0; });
         var out6 = UI.makeCanvas(oc * cw2, or_ * chh);
         var octx6 = out6.getContext("2d");
@@ -556,14 +604,18 @@
             var abs = Math.abs(cellNo) - 1;
             var srcCol = abs % sc, srcRow = Math.floor(abs / sc);
             if (srcRow >= sr) continue;
+            var sbx = colB[srcCol], sby = rowB[srcRow];
+            var sw6 = sbx[1] - sbx[0], sh6 = sby[1] - sby[0];
+            var dx6 = c6 * cw2 + Math.floor((cw2 - sw6) / 2);
+            var dy6 = r6 * chh + Math.floor((chh - sh6) / 2);
             if (flip) {
               octx6.save();
-              octx6.translate((c6 + 1) * cw2, r6 * chh);
+              octx6.translate(dx6 + sw6, dy6);
               octx6.scale(-1, 1);
-              octx6.drawImage(src6, srcCol * cw2, srcRow * chh, cw2, chh, 0, 0, cw2, chh);
+              octx6.drawImage(src6, sbx[0], sby[0], sw6, sh6, 0, 0, sw6, sh6);
               octx6.restore();
             } else {
-              octx6.drawImage(src6, srcCol * cw2, srcRow * chh, cw2, chh, c6 * cw2, r6 * chh, cw2, chh);
+              octx6.drawImage(src6, sbx[0], sby[0], sw6, sh6, dx6, dy6, sw6, sh6);
             }
           }
         }
@@ -583,6 +635,87 @@
         } catch (e) {
           return Promise.reject(e);
         }
+      }
+      case "evenSplitStrip": {
+        // 原站 Ez：cols×rows 网格按行优先展开为单条横带
+        var ec = Math.max(1, Number(p.evenCols) | 0), er = Math.max(1, Number(p.evenRows) | 0);
+        var cwx = Math.floor(im.width / ec), chx = Math.floor(im.height / er);
+        var out7 = UI.makeCanvas(ec * er * cwx, chx);
+        var octx7 = out7.getContext("2d");
+        var src7 = UI.imageDataToCanvas(im);
+        var n7 = 0;
+        for (var ry7 = 0; ry7 < er; ry7++) {
+          for (var rx7 = 0; rx7 < ec; rx7++) {
+            octx7.drawImage(src7, rx7 * cwx, ry7 * chx, cwx, chx, n7 * cwx, 0, cwx, chx);
+            n7++;
+          }
+        }
+        return Promise.resolve(out7.getContext("2d").getImageData(0, 0, out7.width, out7.height));
+      }
+      case "evenSplitPerCellEdge": {
+        // 原站 Rz：每格先扩边(d1)/裁边(n1) 再拼横带
+        var ec2 = Math.max(1, Number(p.evenCols) | 0), er2 = Math.max(1, Number(p.evenRows) | 0);
+        var cwx2 = Math.floor(im.width / ec2), chx2 = Math.floor(im.height / er2);
+        var expand = (Number(p.cellEdgeMode) | 0) === 0;
+        var eL = Math.max(0, Number(p.edgeL) | 0), eT = Math.max(0, Number(p.edgeT) | 0);
+        var eR = Math.max(0, Number(p.edgeR) | 0), eB = Math.max(0, Number(p.edgeB) | 0);
+        var src8 = UI.imageDataToCanvas(im);
+        var cellW = expand ? cwx2 + eL + eR : Math.max(1, cwx2 - eL - eR);
+        var cellH = expand ? chx2 + eT + eB : Math.max(1, chx2 - eT - eB);
+        var out8 = UI.makeCanvas(ec2 * er2 * cellW, cellH);
+        var octx8 = out8.getContext("2d");
+        var n8 = 0;
+        for (var ry8 = 0; ry8 < er2; ry8++) {
+          for (var rx8 = 0; rx8 < ec2; rx8++) {
+            var cx8 = n8 * cellW;
+            var sx8 = rx8 * cwx2, sy8 = ry8 * chx2;
+            if (expand) {
+              octx8.drawImage(src8, sx8, sy8, cwx2, chx2, cx8 + eL, eT, cwx2, chx2);
+            } else {
+              octx8.drawImage(src8, sx8 + eL, sy8 + eT, cellW, cellH, cx8, 0, cellW, cellH);
+            }
+            n8++;
+          }
+        }
+        return Promise.resolve(out8.getContext("2d").getImageData(0, 0, out8.width, out8.height));
+      }
+      case "mergeStrip": {
+        // 原站 Iz：横向逐帧条带重排到 mergeCols 列网格
+        var mc = Math.max(1, Number(p.mergeCols) | 0);
+        var fcount = Number(p.frameCount) | 0;
+        var frames = fcount > 0 ? Math.min(fcount, im.width) : Math.floor(im.width / (Number(p.frameW) || 32));
+        if (frames < 1) frames = 1;
+        var fW = Math.floor(im.width / frames);
+        var fH = im.height;
+        var rows9 = Math.ceil(frames / mc);
+        var out9 = UI.makeCanvas(mc * fW, rows9 * fH);
+        var octx9 = out9.getContext("2d");
+        var src9 = UI.imageDataToCanvas(im);
+        for (var k9 = 0; k9 < frames; k9++) {
+          octx9.drawImage(src9, k9 * fW, 0, fW, fH, (k9 % mc) * fW, Math.floor(k9 / mc) * fH, fW, fH);
+        }
+        return Promise.resolve(out9.getContext("2d").getImageData(0, 0, out9.width, out9.height));
+      }
+      case "simpleStitchVertical": {
+        // 原站 oH 简版：单输入时按槽位数复制拼接（0=竖叠 1=横排 2=叠加）
+        var mode = Number(p.stitchMode) | 0;
+        var slots = Math.max(2, Math.min(16, Number(p.stitchSlotCount) | 0));
+        var src10 = UI.imageDataToCanvas(im);
+        var out10;
+        if (mode === 0) {
+          out10 = UI.makeCanvas(im.width, im.height * slots);
+          var c10 = out10.getContext("2d");
+          for (var s10 = 0; s10 < slots; s10++) c10.drawImage(src10, 0, s10 * im.height);
+        } else if (mode === 1) {
+          out10 = UI.makeCanvas(im.width * slots, im.height);
+          var c11 = out10.getContext("2d");
+          for (var s11 = 0; s11 < slots; s11++) c11.drawImage(src10, s11 * im.width, 0);
+        } else {
+          out10 = UI.makeCanvas(im.width, im.height);
+          var c12 = out10.getContext("2d");
+          for (var s12 = 0; s12 < slots; s12++) c12.drawImage(src10, 0, 0);
+        }
+        return Promise.resolve(out10.getContext("2d").getImageData(0, 0, out10.width, out10.height));
       }
       default:
         return Promise.resolve(im);
