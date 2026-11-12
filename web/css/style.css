@@ -1070,3 +1070,85 @@ input[type="color"] {
   background: var(--card-bg); border: 1.2px solid var(--card-border);
   border-radius: 12px; padding: 12px; margin-bottom: 12px;
 }
+
+/* ---------- 模型对话（v5 对齐：侧栏 + 输入区） ---------- */
+.chat-layout { display: grid; grid-template-columns: 1fr 280px; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .chat-layout { grid-template-columns: 1fr; } }
+.chat-side {
+  background: var(--card-bg2); border: 1.2px solid var(--card-border);
+  border-radius: 10px; padding: 12px;
+}
+.chat-side .param-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.chat-side .param-row label { min-width: 42px; font-size: 12.5px; color: var(--text-dim); }
+.mt4 { margin-top: 4px; }
+
+/* 暂存面板双 tab（暂存/本地） */
+.stash-tabs { display: flex; gap: 6px; padding: 0 12px 8px; }
+.stash-tab {
+  flex: 1; padding: 5px 0; font-size: 12px; cursor: pointer;
+  background: var(--input-bg); color: var(--text-dim);
+  border: 1.2px solid var(--input-border); border-radius: 6px;
+}
+.stash-tab.on { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+
+/* ================= 主题扩展（对齐原站 6 套主题） ================= */
+/* Gemini 蓝紫（亮） */
+[data-theme="gemini"] {
+  --page-bg: linear-gradient(160deg, #eef0fb 0%, #e8ebf9 55%, #e2e6f7 100%);
+  --header-bg: #dfe3f8; --header-bg2: #d6dbf5;
+  --card-bg: #ffffff; --card-bg2: #f3f4fc;
+  --card-border: #c3c9ec; --card-shadow: 0 2px 10px rgba(76, 92, 180, 0.12);
+  --card-shadow-hover: 0 6px 18px rgba(76, 92, 180, 0.22);
+  --text: #2c3150; --text-dim: #6d7397;
+  --accent: #6c7ce0; --accent-hover: #5567d4; --accent-soft: #e4e7fb;
+  --gold: #9b7fe8; --green: #4f9e7a;
+  --badge-bg: #6c7ce0; --badge-text: #fff;
+  --input-bg: #ffffff; --input-border: #c3c9ec;
+  --panel-bg: #f3f4fc; --btn2-bg: #eceefb; --btn2-hover: #dfe2f8;
+  --checker-a: #e8eaf7; --checker-b: #dfe2f4; --danger: #d0526a;
+}
+/* 午夜深蓝（暗） */
+[data-theme="midnight"] {
+  --page-bg: linear-gradient(160deg, #0b1220 0%, #0d1524 55%, #101a2c 100%);
+  --header-bg: #080d17; --header-bg2: #060a12;
+  --card-bg: #14203a; --card-bg2: #101a30;
+  --card-border: #27405f; --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --card-shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.55);
+  --text: #d5e2f0; --text-dim: #7f96b3;
+  --accent: #4d8fd1; --accent-hover: #66a5e2; --accent-soft: #1a2c47;
+  --gold: #6fb3e8; --green: #5aa88c;
+  --badge-bg: #3a72ad; --badge-text: #fff;
+  --input-bg: #0e1728; --input-border: #27405f;
+  --panel-bg: #16233d; --btn2-bg: #1c2c49; --btn2-hover: #25385c;
+  --checker-a: #16223a; --checker-b: #121c30; --danger: #d06a7e;
+}
+/* 森林青绿（暗） */
+[data-theme="forest"] {
+  --page-bg: linear-gradient(160deg, #0e1a13 0%, #11211766 55%, #132419 100%);
+  --header-bg: #0a140e; --header-bg2: #080f0b;
+  --card-bg: #17271d; --card-bg2: #132019;
+  --card-border: #2c4736; --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --card-shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.5);
+  --text: #d8e8dc; --text-dim: #86a591;
+  --accent: #4aa272; --accent-hover: #5eb985; --accent-soft: #1c3226;
+  --gold: #8fd0a8; --green: #7fcf9f;
+  --badge-bg: #3d8a5c; --badge-text: #fff;
+  --input-bg: #101c15; --input-border: #2c4736;
+  --panel-bg: #1a2c21; --btn2-bg: #213829; --btn2-hover: #2a4734;
+  --checker-a: #182a1f; --checker-b: #14231a; --danger: #cf6a5e;
+}
+/* 中国红（暗+红金） */
+[data-theme="china"] {
+  --page-bg: linear-gradient(160deg, #2a1214 0%, #240f10 55%, #1e0c0d 100%);
+  --header-bg: #1c0b0c; --header-bg2: #160809;
+  --card-bg: #341a1c; --card-bg2: #2c1517;
+  --card-border: #5a2f32; --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --card-shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.55);
+  --text: #f0dfd8; --text-dim: #b39089;
+  --accent: #c8433f; --accent-hover: #de5750; --accent-soft: #4a2224;
+  --gold: #e8c04b; --green: #6faf83;
+  --badge-bg: #b83434; --badge-text: #fff;
+  --input-bg: #261012; --input-border: #5a2f32;
+  --panel-bg: #3a1e20; --btn2-bg: #452426; --btn2-hover: #552d2f;
+  --checker-a: #351c1e; --checker-b: #2c1618; --danger: #e07a5a;
+}

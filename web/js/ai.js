@@ -275,16 +275,36 @@
     });
   }
 
-  /** 文本对话（模型对话模块用）：messages = [{role, content}] */
+  /** 文本/图文对话（模型对话模块用）：messages = [{role, content}]
+   *  content 为 string，或 [{t:"文本"}|{img:{mime,base64,dataUrl}}] 混合数组 */
   function chat(messages) {
     if (!getKey()) return Promise.reject(new Error("NO_KEY"));
     var type = effectiveType();
+    function toParts(c) {
+      if (typeof c === "string") return [{ text: c }];
+      var out = [];
+      c.forEach(function (p) {
+        if (p.text) out.push({ text: p.text });
+        else if (p.img) out.push({ inline_data: { mime_type: p.img.mime, data: p.img.base64 } });
+      });
+      if (!out.length) out.push({ text: "" });
+      return out;
+    }
     if (type === "openai-chat" || type === "openai-images") {
       var url = buildOpenAIChatUrl(getBase());
+      var om = messages.map(function (m) {
+        if (typeof m.content === "string") return { role: m.role, content: m.content };
+        var parts = [];
+        m.content.forEach(function (p) {
+          if (p.text) parts.push({ type: "text", text: p.text });
+          else if (p.img && p.img.dataUrl) parts.push({ type: "image_url", image_url: { url: p.img.dataUrl } });
+        });
+        return { role: m.role, content: parts };
+      });
       return fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + getKey() },
-        body: JSON.stringify({ model: getModel(), messages: messages, stream: false })
+        body: JSON.stringify({ model: getModel(), messages: om, stream: false })
       }).then(handleHttp).then(function (j) {
         var c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
         if (typeof c !== "string") throw new Error("未返回文本");
@@ -293,7 +313,7 @@
     }
     // Gemini 原生
     var contents = messages.map(function (m) {
-      return { role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] };
+      return { role: m.role === "assistant" ? "model" : "user", parts: toParts(m.content) };
     });
     var url2 = buildGeminiUrl(getBase(), getModel(), getKey());
     return fetch(url2, {

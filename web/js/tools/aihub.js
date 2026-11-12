@@ -586,7 +586,7 @@
 
     var framesSel = UI.selectRow(t("pc.frames"), [
       { v: "6", label: "6 帧" }, { v: "12", label: "12 帧" }, { v: "24", label: "24 帧" }, { v: "36", label: "36 帧" }, { v: "54", label: "54 帧" }
-    ], "8", {});
+    ], "6", {});
 
     var matteSw = UI.switchRow(t("pc.matte"), true, function () {});
     var tolSlider = UI.slider(t("pc.tol"), 10, 150, 60, {});
@@ -694,18 +694,42 @@
         (function (idx) {
           Ai.generate(p, refData)
             .then(function (r) {
-              var img = UI.el("img", { class: "result-img sm", src: r.dataUrl });
-              img.addEventListener("dblclick", function () { UI.lightbox(r.dataUrl, "抽卡 " + (idx + 1)); });
-              var cell = UI.el("div", { class: "canvas-frame" }, [img]);
-              cell.appendChild(UI.el("div", { class: "frame-note" }, ["#" + (idx + 1)]));
-              var ops = UI.el("div", { class: "btn-row mt8" }, [
-                UI.btn(t("common.download"), "btn-outline btn-sm", function () {
-                  UI.download(dataUrlToBlob(r.dataUrl), "draw_" + (idx + 1) + ".png");
-                }),
-                UI.btn(t("common.toStash"), "btn-ghost btn-sm", function () { FF.Stash.add(r.dataUrl, "draw_" + (idx + 1) + ".png"); })
-              ]);
-              drawResults.appendChild(UI.el("div", { style: { display: "inline-block", margin: "6px", verticalAlign: "top" } }, [cell, ops]));
-              Ai.pushHistory({ time: Date.now(), prompt: p.slice(0, 200), dataUrl: r.dataUrl });
+              // 自动抠图：绿幕图送连通域抠图（mode5，与一键处理同参）
+              var fin = function (dataUrl) {
+                var img = UI.el("img", { class: "result-img sm", src: dataUrl });
+                img.addEventListener("dblclick", function () { UI.lightbox(dataUrl, "抽卡 " + (idx + 1)); });
+                var cell = UI.el("div", { class: "canvas-frame" }, [img]);
+                cell.appendChild(UI.el("div", { class: "frame-note" }, ["#" + (idx + 1)]));
+                var ops = UI.el("div", { class: "btn-row mt8" }, [
+                  UI.btn(t("common.download"), "btn-outline btn-sm", function () {
+                    UI.download(dataUrlToBlob(dataUrl), "draw_" + (idx + 1) + ".png");
+                  }),
+                  UI.btn(t("common.toStash"), "btn-ghost btn-sm", function () { FF.Stash.add(dataUrl, "draw_" + (idx + 1) + ".png"); })
+                ]);
+                drawResults.appendChild(UI.el("div", { style: { display: "inline-block", margin: "6px", verticalAlign: "top" } }, [cell, ops]));
+                Ai.pushHistory({ time: Date.now(), prompt: p.slice(0, 200), dataUrl: dataUrl });
+              };
+              if (!matteSw.value) { fin(r.dataUrl); return; }
+              var im = new Image();
+              im.onload = function () {
+                var cv = document.createElement("canvas");
+                var sc = Math.min(1, 2048 / Math.max(im.naturalWidth, im.naturalHeight));
+                cv.width = Math.max(1, Math.round(im.naturalWidth * sc));
+                cv.height = Math.max(1, Math.round(im.naturalHeight * sc));
+                var cx = cv.getContext("2d");
+                cx.drawImage(im, 0, 0, cv.width, cv.height);
+                var imd = cx.getImageData(0, 0, cv.width, cv.height);
+                FF.Wasm.chromaKey(imd, { mode: 5, tol: 80, feather: 5, suppress: 0 })
+                  .then(function (out) {
+                    var oc = document.createElement("canvas");
+                    oc.width = cv.width; oc.height = cv.height;
+                    oc.getContext("2d").putImageData(out, 0, 0);
+                    fin(oc.toDataURL("image/png"));
+                  })
+                  .catch(function () { fin(r.dataUrl); });
+              };
+              im.onerror = function () { fin(r.dataUrl); };
+              im.src = r.dataUrl;
             })
             .catch(function (e) {
               status.textContent = e.message === "NO_KEY" ? t("fg.needKey") : t("fg.fail") + e.message;

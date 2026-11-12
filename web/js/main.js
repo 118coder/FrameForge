@@ -20,6 +20,8 @@
     { id: "effects", route: "#/effects", icon: "pixel", key: "", size: "lg", enabled: true, badges: ["badge.free"], cat: "ai" },
     { id: "uiicons", route: "#/uiicons", icon: "ps",   key: "", size: "lg", enabled: true, cat: "ai" },
     { id: "potpourri", route: "#/potpourri", icon: "ai", key: "", size: "sm", enabled: true, cat: "ai" },
+    { id: "videogen",  route: "#/videogen",  icon: "video", key: "", size: "lg", enabled: true, cat: "ai" },
+    { id: "scenechar", route: "#/scenechar", icon: "ai",    key: "", size: "lg", enabled: true, cat: "ai" },
     { id: "lab",     route: "#/lab",     icon: "hd2d",  key: "", size: "lg", enabled: true, badges: ["badge.new"], cat: "ai" },
     /* -- 图像处理区 -- */
     { id: "video",  route: "#/video",  icon: "video",   key: "V", size: "lg", enabled: true, cat: "tools" },
@@ -27,6 +29,7 @@
     { id: "chroma", route: "#/chroma", icon: "scissors", key: "K", size: "lg", enabled: true, cat: "tools" },
     { id: "sheet",  route: "#/sheet",  icon: "grid",    key: "S", size: "lg", enabled: true, cat: "tools" },
     { id: "gif",    route: "#/gif",    icon: "film",    key: "G", size: "lg", enabled: true, cat: "tools" },
+    { id: "gifcomp", route: "#/gifcomposer", icon: "film",  key: "", size: "lg", enabled: true, cat: "tools" },
     { id: "pixel",  route: "#/pixel",  icon: "pixel",   key: "W", size: "lg", enabled: true, badges: ["badge.onekey"], cat: "tools" },
     { id: "layers", route: "#/layers", icon: "layers",  key: "L", size: "lg", enabled: true, cat: "tools" },
     { id: "pixelplus", route: "#/pixelplus", icon: "pixel", key: "F", size: "lg", enabled: true, cat: "tools" },
@@ -34,6 +37,7 @@
     /* -- 效率工具区 -- */
     { id: "pro",    route: "#/pro",    icon: "pixel",   key: "R", size: "lg", enabled: true, cat: "pro" },
     { id: "flow",   route: "#/flow",   icon: "hd2d",    key: "T", size: "lg", enabled: true, badges: ["badge.new"], cat: "pro" },
+    { id: "gwm",    route: "#/gwm",    icon: "ps",      key: "", size: "lg", enabled: true, cat: "pro" },
     { id: "rseprite", route: "#/rseprite", icon: "ps",   key: "E", size: "lg", enabled: true, badges: ["badge.new"], cat: "pro" },
     { id: "chat",   route: "#/chat",   icon: "ai",      key: "C", size: "lg", enabled: true, cat: "pro" },
     /* -- 资源与说明区 -- */
@@ -45,7 +49,8 @@
     { id: "npc",       route: "#/npc",       icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
     { id: "terrain",   route: "#/terrain",   icon: "map",    key: "", size: "sm", enabled: true, cat: "res" },
     { id: "hd2d",      route: "#/hd2d",      icon: "hd2d",   key: "", size: "sm", enabled: true, cat: "res" },
-    { id: "ps2",       route: "#/onlineps",  icon: "ps",     key: "", size: "sm", enabled: true, cat: "res" }
+    { id: "ps2",       route: "#/onlineps",  icon: "ps",     key: "", size: "sm", enabled: true, cat: "res" },
+    { id: "tut",       route: "#/tut",       icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
   ];
 
   var CATS = ["ai", "tools", "pro", "res"];
@@ -63,11 +68,16 @@
     var theme = localStorage.getItem("ff.theme") || "light";
     document.documentElement.setAttribute("data-theme", theme);
   }
+  /* 6 套主题轮换（对齐原站：明亮纸白/经典废土/Gemini蓝紫/午夜深蓝/森林青绿/中国红） */
+  var THEMES = ["light", "dark", "gemini", "midnight", "forest", "china"];
+  var THEME_LABELS = { light: "明亮纸白", dark: "经典废土", gemini: "Gemini 蓝紫", midnight: "午夜深蓝", forest: "森林青绿", china: "中国红" };
   function toggleTheme() {
     var cur = document.documentElement.getAttribute("data-theme") || "light";
-    var next = cur === "light" ? "dark" : "light";
+    var idx = THEMES.indexOf(cur);
+    var next = THEMES[(idx + 1) % THEMES.length];
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("ff.theme", next);
+    FF.Toast.show("主题：" + (THEME_LABELS[next] || next), "ok");
   }
 
   function initLang() {
@@ -149,6 +159,16 @@
     });
     document.addEventListener("drop", function (e) {
       depth = 0;
+      // 暂存拖出（原站 MIME application/x-frameronin-stash-url；兼容 text/ff-stash）
+      var stashUrl = "";
+      try { stashUrl = e.dataTransfer.getData("application/x-frameronin-stash-url") || e.dataTransfer.getData("text/ff-stash") || ""; } catch (err) {}
+      if (stashUrl && /^data:image\//.test(stashUrl)) {
+        e.preventDefault();
+        if (currentView && typeof currentView.onDrop === "function") currentView.onDrop(stashUrl);
+        else if (currentView && typeof currentView.onPaste === "function") currentView.onPaste(stashUrl);
+        else { sessionStorage.setItem("ff.transfer", stashUrl); FF.Toast.show(t("toast.transferred"), "ok"); }
+        return;
+      }
       var files = e.dataTransfer && e.dataTransfer.files;
       if (!files || !files.length) return;
       // 只拦截图片文件；其他交给页面内 dropzone 自己处理
@@ -676,7 +696,13 @@
     "#/npc": function (q) { return FF.Tools.npcplugin(q); },
     "#/terrain": function (q) { return FF.Tools.terrain(q); },
     "#/hd2d": function (q) { return FF.Tools.hd2d(q); },
-    "#/onlineps": function (q) { return FF.Tools.onlineps(q); }
+    "#/onlineps": function (q) { return FF.Tools.onlineps(q); },
+    "#/tut": function (q) { return FF.Tools.tut(q); },
+    "#/videogen": function (q) { return FF.Tools.videogen(q); },
+    "#/scenechar": function (q) { return FF.Tools.scenechar(q); },
+    "#/gifcomposer": function (q) { return FF.Tools.gifcomposer(q); },
+    "#/gwm": function (q) { return FF.Tools.geminiwm(q); },
+
   };
 
   var currentCleanup = null;

@@ -123,7 +123,7 @@
     var ctx = canvas.getContext("2d", { willReadFrequently: true });
     var editFrame = UI.el("div", { class: "canvas-frame" }, [canvas]);
 
-    var undoStack = null; // 单步撤销快照
+    var undoStack = [];   // 30 步撤销快照栈（对齐原站 FineEditor 上限语义）
     var tool = "brush";
     var brushSize = 4;
     var brushColor = "#b64a2e";
@@ -151,13 +151,14 @@
     }
 
     function pushUndo() {
-      if (editIm) undoStack = new Uint8ClampedArray(editIm.data);
+      if (!editIm) return;
+      undoStack.push(new Uint8ClampedArray(editIm.data));
+      if (undoStack.length > 30) undoStack.shift();
     }
     function undo() {
-      if (!undoStack || !editIm) return;
-      editIm.data.set(undoStack);
+      if (!undoStack.length || !editIm) return;
+      editIm.data.set(undoStack.pop());
       ctx.putImageData(editIm, 0, 0);
-      undoStack = null;
     }
 
     function canvasPos(e) {
@@ -286,10 +287,22 @@
     }
 
     document.addEventListener("keydown", function onKey(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && panes[1].style.display !== "none") {
+      if (panes[1].style.display === "none") return;
+      var k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && k === "z") {
         undo();
         e.preventDefault();
+        return;
       }
+      // 原站 FineEditor 快捷键（本页工具子集）：B 画笔 E 橡皮 S 取色 G 超级橡皮 [ ] 调笔刷
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+      if (k === "b") setTool("brush");
+      else if (k === "e") setTool("eraser");
+      else if (k === "s") setTool("pick");
+      else if (k === "g") setTool("super");
+      else if (k === "[") { brushSize = Math.max(1, brushSize - 1); brushSizeSlider.set(brushSize); }
+      else if (k === "]") { brushSize = Math.min(32, brushSize + 1); brushSizeSlider.set(brushSize); }
     });
 
     card.appendChild(tabBar);

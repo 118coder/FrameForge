@@ -99,8 +99,8 @@
       }
     });
     var info = UI.el("div", { class: "hint-text mt8" }, []);
-    var nIn = numInput(2, 1, 64), mIn = numInput(2, 1, 64);
-    var cwIn = numInput(64, 1, 4096), chIn = numInput(64, 1, 4096);
+    var nIn = numInput(4, 1, 64), mIn = numInput(4, 1, 64);
+    var cwIn = numInput(32, 1, 4096), chIn = numInput(32, 1, 4096);
     var gridRow = UI.el("div", { class: "row", style: { gap: "6px", flexWrap: "wrap" } }, [
       UI.el("span", { class: "hint-text" }, ["N×M"]), nIn, mIn,
       UI.el("span", { class: "hint-text" }, [t("es.cell")]), cwIn, chIn
@@ -153,11 +153,120 @@
       }
     });
     var info = UI.el("div", { class: "hint-text mt8" }, []);
-    var nIn = numInput(24, 2, 256);
+    var nIn = numInput(24, 4, 512);
     var mergeCols = numInput(4, 1, 64);
+    var sampleSel = UI.selectRow(t("iso.sample"), [
+      { v: "nearest", label: "nearest" }, { v: "bilinear", label: "bilinear" }
+    ], "nearest", {});
+
+    /* ---- 原站 Js/Tc/Oc：单位方→菱形单应（8 元方程+部分主元高斯消元），逆映射采样 ---- */
+    function solveHomography(src, dst) {
+      // 求 H：src(2D) → dst(2D)，h22=1，8 未知数
+      var A = [], b = [];
+      for (var i = 0; i < 4; i++) {
+        var u = src[i][0], v = src[i][1], x = dst[i][0], y = dst[i][1];
+        A.push([u, v, 1, 0, 0, 0, -u * x, -v * x]); b.push(x);
+        A.push([0, 0, 0, u, v, 1, -u * y, -v * y]); b.push(y);
+      }
+      // 高斯消元（部分主元）
+      for (var c = 0; c < 8; c++) {
+        var piv = c;
+        for (var r2 = c + 1; r2 < 8; r2++) if (Math.abs(A[r2][c]) > Math.abs(A[piv][c])) piv = r2;
+        var tmp = A[c]; A[c] = A[piv]; A[piv] = tmp;
+        var tb = b[c]; b[c] = b[piv]; b[piv] = tb;
+        for (var r3 = c + 1; r3 < 8; r3++) {
+          var f = A[r3][c] / A[c][c];
+          for (var cc = c; cc < 8; cc++) A[r3][cc] -= f * A[c][cc];
+          b[r3] -= f * b[c];
+        }
+      }
+      var h = new Array(8);
+      for (var r4 = 7; r4 >= 0; r4--) {
+        var s = b[r4];
+        for (var c2 = r4 + 1; c2 < 8; c2++) s -= A[r4][c2] * h[c2];
+        h[r4] = s / A[r4][r4];
+      }
+      return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+    }
+    function invert3(m) {
+      var a = m[0], b2 = m[1], c = m[2], d = m[3], e = m[4], f = m[5], g = m[6], h2 = m[7], k = m[8];
+      var A = e * k - f * h2, B = f * g - d * k, C = d * h2 - e * g;
+      var det = a * A + b2 * B + c * C;
+      if (!det) return null;
+      return [
+        A / det, (c * h2 - b2 * k) / det, (b2 * f - c * e) / det,
+        B / det, (a * k - c * g) / det, (c * d - a * f) / det,
+        C / det, (b2 * g - a * h2) / det, (a * e - b2 * d) / det
+      ];
+    }
+    // 单瓦片：源 (tx,ty) 格 N×N → 输出 2N×N 菱形
+    function skewTile(src, tx, ty, N, Hinv, bilinear, out, ox, oy) {
+      var W = src.width, sd = src.data, od = out.data, OW = out.width;
+      function sample(sxf, syf) {
+        if (bilinear) {
+          var x0 = Math.floor(sxf), y0 = Math.floor(syf);
+          var fx = sxf - x0, fy = syf - y0;
+          var acc = [0, 0, 0, 0];
+          for (var dy = 0; dy <= 1; dy++) {
+            for (var dx = 0; dx <= 1; dx++) {
+              var sx = Math.min(N - 1, Math.max(0, x0 + dx));
+              var sy = Math.min(N - 1, Math.max(0, y0 + dy));
+              var si = ((ty * N + sy) * W + tx * N + sx) * 4;
+              var w = (dx ? fx : 1 - fx) * (dy ? fy : 1 - fy);
+              acc[0] += sd[si] * w; acc[1] += sd[si + 1] * w;
+              acc[2] += sd[si + 2] * w; acc[3] += sd[si + 3] * w;
+            }
+          }
+          return [Math.round(acc[0]), Math.round(acc[1]), Math.round(acc[2]), Math.round(acc[3])];
+        }
+        var sx2 = Math.round(sxf), sy2 = Math.round(syf);
+        if (sx2 < 0 || sy2 < 0 || sx2 >= N || sy2 >= N) return [0, 0, 0, 0];
+        var si2 = ((ty * N + sy2) * W + tx * N + sx2) * 4;
+        return [sd[si2], sd[si2 + 1], sd[si2 + 2], sd[si2 + 3]];
+      }
+      for (var Y = 0; Y < N; Y++) {
+        for (var X = 0; X < 2 * N; X++) {
+          var cx = X + 0.5, cy = Y + 0.5;
+          var den = Hinv[6] * cx + Hinv[7] * cy + Hinv[8];
+          if (!den) continue;
+          var u = (Hinv[0] * cx + Hinv[1] * cy + Hinv[2]) / den;
+          var v = (Hinv[3] * cx + Hinv[4] * cy + Hinv[5]) / den;
+          if (u < 0 || u > 1 || v < 0 || v > 1) continue;
+          var px = sample(u * (N - 1), v * (N - 1));
+          if (px[3] === 0) continue;
+          var di = ((oy + Y) * OW + (ox + X)) * 4;
+          od[di] = px[0]; od[di + 1] = px[1]; od[di + 2] = px[2]; od[di + 3] = px[3];
+        }
+      }
+    }
+    // 边缘膨胀：透明像素 8 邻域有内容则复制其颜色（去锯齿缝）
+    function dilateEdges(img) {
+      var W = img.width, H = img.height, d = img.data;
+      var copy = new Uint8ClampedArray(d);
+      for (var y = 0; y < H; y++) {
+        for (var x = 0; x < W; x++) {
+          var i = (y * W + x) * 4;
+          if (copy[i + 3] !== 0) continue;
+          for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              var nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+              var j = (ny * W + nx) * 4;
+              if (copy[j + 3] === 0) continue;
+              d[i] = copy[j]; d[i + 1] = copy[j + 1]; d[i + 2] = copy[j + 2]; d[i + 3] = copy[j + 3];
+              dy = 2; break;
+            }
+          }
+        }
+      }
+    }
+
     var go = UI.btn(t("iso.go"), "btn-primary", function () {
       if (!im) return;
-      var N = Math.max(2, +nIn.value | 0);
+      var N = Math.max(4, +nIn.value | 0);
+      N = Math.floor(N / 2) * 2; // 强制偶数（原站语义）
+      if (N > 512) N = 512;
       if (im.width % N || im.height % N) {
         info.textContent = t("iso.errSize").replace("{n}", N).replace("{w}", im.width).replace("{h}", im.height);
         info.style.color = "var(--danger)";
@@ -165,38 +274,30 @@
       }
       var cols = im.width / N, rows = im.height / N;
       var MC = Math.max(1, +mergeCols.value | 0);
-      var outRows = Math.ceil(cols / MC);
       var cellW = 2 * N, cellH = N;
-      var out = UI.makeCanvas(MC * cellW, outRows * cellH);
+      var out = UI.makeCanvas(MC * cellW, Math.ceil(cols / MC) * cellH);
       var octx = out.getContext("2d");
-      var src = im;
       var outIm = octx.createImageData(out.width, out.height);
+      // 单位方 (0,0),(1,0),(1,1),(0,1) → 菱形四角 [N,0],[2N-1,N/2],[N,N-1],[0,N/2]
+      var Hfwd = solveHomography([[0, 0], [1, 0], [1, 1], [0, 1]],
+        [[N, 0], [2 * N - 1, N / 2], [N, N - 1], [0, N / 2]]);
+      var Hinv = invert3(Hfwd);
+      var bilinear = sampleSel.value === "bilinear";
       for (var ty = 0; ty < rows; ty++) {
         for (var tx = 0; tx < cols; tx++) {
           var slot = ty * cols + tx;
           var ox = (slot % MC) * cellW;
           var oy = Math.floor(slot / MC) * cellH;
-          for (var py = 0; py < cellH; py++) {
-            for (var px = 0; px < cellW; px++) {
-              // 菱形 → 方形反算
-              var u = (px - N) / N + (py / N);   // -1..1 横向
-              var v = (py / N) - (px - N) / N;   // 0..2 纵向（近似）
-              var sx = tx * N + Math.round((u + 1) / 2 * (N - 1));
-              var sy = ty * N + Math.round(v / 2 * (N - 1));
-              if (sx < tx * N || sx >= tx * N + N || sy < ty * N || sy >= ty * N + N) continue;
-              var si = (sy * src.width + sx) * 4;
-              if (src.data[si + 3] === 0) continue;
-              var di = ((oy + py) * out.width + (ox + px)) * 4;
-              outIm.data[di] = src.data[si];
-              outIm.data[di + 1] = src.data[si + 1];
-              outIm.data[di + 2] = src.data[si + 2];
-              outIm.data[di + 3] = src.data[si + 3];
-            }
-          }
+          skewTile(im, tx, ty, N, Hinv, bilinear, outIm, ox, oy);
         }
       }
+      dilateEdges(outIm);
       octx.putImageData(outIm, 0, 0);
-      show(out);
+      show(out, [
+        UI.btn(t("common.download") + " iso_rhombus_" + N + ".png", "btn-outline", function () {
+          out.toBlob(function (blob) { UI.download(blob, "iso_rhombus_" + N + ".png"); }, "image/png", 0.95);
+        })
+      ]);
     });
     var show = resultBox(pane, t("pp.tab.isoskew"));
     pane.appendChild(dz); pane.appendChild(info);
@@ -204,7 +305,8 @@
       UI.el("div", { class: "row", style: { gap: "6px", flexWrap: "wrap" } }, [
         UI.el("span", { class: "hint-text" }, [t("iso.n")]), nIn,
         UI.el("span", { class: "hint-text" }, [t("iso.mergeCols")]), mergeCols
-      ])
+      ]),
+      sampleSel.el
     ]));
     pane.appendChild(UI.el("div", { class: "mt14" }, [go]));
   };
@@ -223,7 +325,7 @@
       }
     });
     var info = UI.el("div", { class: "hint-text mt8" }, []);
-    var cIn = numInput(4, 1, 64), rIn = numInput(4, 1, 64);
+    var cIn = numInput(8, 1, 64), rIn = numInput(4, 1, 64);
     var run = UI.btn(t("dup.run"), "btn-primary", function () {
       if (!im) return;
       var C = Math.max(1, +cIn.value | 0), R = Math.max(1, +rIn.value | 0);
@@ -237,38 +339,44 @@
           frames.push(f);
         }
       }
-      // 指纹（降采样 8×8 RGBA + alpha 轮廓）
-      function fingerprint(cv) {
-        var d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height);
-        var N = 8, sig = "", asig = "";
-        for (var y = 0; y < N; y++) {
-          for (var x = 0; x < N; x++) {
-            var sx = Math.floor(x * cv.width / N), sy = Math.floor(y * cv.height / N);
-            var i = (sy * cv.width + sx) * 4;
-            sig += String.fromCharCode(d.data[i] >> 4, d.data[i + 1] >> 4, d.data[i + 2] >> 4);
-            asig += d.data[i + 3] > 16 ? "1" : "0";
-          }
+      // 原站语义：空白帧（全透明）单列；完全重复=RGBA 全等分组；轮廓重复=可见区域相等但颜色不等
+      function sigOf(cv) {
+        var d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+        var full = "", outline = "", blank = true;
+        for (var i = 0; i < d.length; i += 4) {
+          var a = d[i + 3];
+          if (a !== 0) blank = false;
+          // 完全重复指纹：RGBA 全字节（用三段压缩字符串降内存）
+          full += String.fromCharCode(d[i], d[i + 1], d[i + 2], a);
+          // 轮廓指纹：可见性位（alpha>16 与原站语义一致）
+          outline += a > 16 ? "1" : "0";
         }
-        return { sig: sig, asig: asig, blank: !asig.match(/1/) };
+        return { full: full, outline: outline, blank: blank };
       }
-      var fps = frames.map(fingerprint);
+      var fps = frames.map(sigOf);
       var groups = {}, outlineGroups = {}, blanks = [];
       for (var i = 0; i < frames.length; i++) {
         if (fps[i].blank) { blanks.push(i + 1); continue; }
-        var k = fps[i].sig;
+        var k = fps[i].full;
         (groups[k] = groups[k] || []).push(i + 1);
       }
+      // 轮廓重复：不同颜色但可见区域完全一致的帧归入 outline 组
+      var outlineBySig = {};
+      for (var i2 = 0; i2 < frames.length; i2++) {
+        if (fps[i2].blank) continue;
+        var ok = fps[i2].outline;
+        (outlineBySig[ok] = outlineBySig[ok] || []).push(i2 + 1);
+      }
+      Object.keys(outlineBySig).forEach(function (ok) {
+        var members = outlineBySig[ok];
+        if (members.length < 2) { delete outlineBySig[ok]; return; }
+        // 若组内全部已属同一 full 组（颜色也一致），不算轮廓组
+        var fulls = {};
+        members.forEach(function (n) { fulls[fps[n - 1].full] = 1; });
+        if (Object.keys(fulls).length < 2) delete outlineBySig[ok];
+      });
       Object.keys(groups).forEach(function (k) {
         if (groups[k].length < 2) delete groups[k];
-        else {
-          // 组内检查轮廓差异
-          var first = fps[groups[k][0] - 1];
-          groups[k].forEach(function (n) {
-            if (fps[n - 1].asig !== first.asig) {
-              (outlineGroups[k] = outlineGroups[k] || []).push(n);
-            }
-          });
-        }
       });
       // 报告
       report.innerHTML = "";
@@ -277,16 +385,15 @@
       html += "<b>" + t("dup.found").replace("{frames}", frames.length).replace("{groups}", gkeys.length) + "</b>";
       if (blanks.length) html += "<div class='hint-text'>" + t("dup.blanks") + blanks.join(",") + "</div>";
       gkeys.forEach(function (k) {
-        var members = groups[k].filter(function (n) { return (outlineGroups[k] || []).indexOf(n) < 0; });
-        if (members.length >= 2) html += "<div>" + t("dup.groupLine").replace("{list}", members.join(", ")) + "</div>";
+        html += "<div>" + t("dup.groupLine").replace("{list}", groups[k].join(", ")) + "</div>";
       });
-      Object.keys(outlineGroups).forEach(function (k) {
-        html += "<div class='hint-text'>" + t("dup.outlineLine").replace("{list}", outlineGroups[k].join(", ")) + "</div>";
+      Object.keys(outlineBySig).forEach(function (ok) {
+        html += "<div class='hint-text'>" + t("dup.outlineLine").replace("{list}", outlineBySig[ok].join(", ")) + "</div>";
       });
-      if (!gkeys.length) html += "<div>" + t("dup.none") + "</div>";
+      if (!gkeys.length && !Object.keys(outlineBySig).length) html += "<div>" + t("dup.none") + "</div>";
       report.innerHTML = html;
       // 去重导出
-      lastResult = { frames: frames, fps: fps, groups: groups, blanks: blanks, cw: cw, ch: ch, C: C, R: R };
+      lastResult = { frames: frames, fps: fps, groups: groups, blanks: blanks, cw: cw, ch: ch, C: C, R: R, outlineBySig: outlineBySig };
       // 预览
       stripEl.innerHTML = "";
       var strip = UI.el("div", { class: "filmstrip" });
@@ -301,14 +408,36 @@
     var report = UI.el("div", { class: "mt8 dup-report" });
     var stripEl = UI.el("div", { class: "mt8" });
     var lastResult = null;
+    var dupMode = UI.selectRow(t("dup.mode"), [
+      { v: "dedupe", label: t("dup.mode.dedupe") },
+      { v: "copyFirst", label: t("dup.mode.copyFirst") }
+    ], "dedupe", {});
     var dlDedup = UI.btn(t("dup.downloadMerged"), "btn-outline", function () {
       if (!lastResult) return;
       var lr = lastResult;
       var removed = new Set();
-      Object.keys(lr.groups).forEach(function (k) {
-        lr.groups[k].slice(1).forEach(function (n) { removed.add(n - 1); });
-      });
-      lr.blanks.forEach(function (n) { removed.add(n - 1); });
+      if (dupMode.value === "copyFirst") {
+        // copyFirst：保留全部格数，组内非首帧用首帧像素覆盖
+        Object.keys(lr.groups).forEach(function (k) {
+          var g = lr.groups[k];
+          var first = lr.frames[g[0] - 1];
+          g.slice(1).forEach(function (n) {
+            var tgt = lr.frames[n - 1];
+            tgt.getContext("2d").clearRect(0, 0, lr.cw, lr.ch);
+            tgt.getContext("2d").drawImage(first, 0, 0);
+          });
+        });
+        lr.blanks.forEach(function (n) {
+          var tgt = lr.frames[n - 1];
+          tgt.getContext("2d").clearRect(0, 0, lr.cw, lr.ch);
+        });
+      } else {
+        // dedupe：删除后续重复帧与空帧后重拼
+        Object.keys(lr.groups).forEach(function (k) {
+          lr.groups[k].slice(1).forEach(function (n) { removed.add(n - 1); });
+        });
+        lr.blanks.forEach(function (n) { removed.add(n - 1); });
+      }
       var kept = lr.frames.filter(function (f, i) { return !removed.has(i); });
       if (!kept.length) return;
       var cols = lr.C;
@@ -326,6 +455,7 @@
       UI.el("span", { class: "hint-text" }, [t("dup.cols")]), cIn,
       UI.el("span", { class: "hint-text" }, [t("dup.rows")]), rIn, run
     ]));
+    pane.appendChild(dupMode.el);
     pane.appendChild(report);
     pane.appendChild(stripEl);
     pane.appendChild(UI.el("div", { class: "mt8" }, [dlDedup]));
@@ -347,6 +477,7 @@
     var info = UI.el("div", { class: "hint-text mt8" }, []);
     var alphaIn = numInput(16, 1, 254);
     var padIn = numInput(2, 0, 200);
+    var skipDup = UI.switchRow(t("scq.skipdup"), false, function () {});
     var run = UI.btn(t("scq.run"), "btn-primary", function () {
       if (!im) return;
       var A = +alphaIn.value | 0, pad = +padIn.value | 0;
@@ -370,6 +501,30 @@
         }
       }
       if (!segs.length) { info.textContent = t("scq.none"); info.style.color = "var(--danger)"; return; }
+      // 可选：跳过完全重复帧（逐像素全等比较）
+      if (skipDup.value) {
+        var uniq = [];
+        segs.forEach(function (sg) {
+          var w = sg[1] - sg[0];
+          var d = im.data, dup = false;
+          for (var u = 0; u < uniq.length; u++) {
+            var ug = uniq[u];
+            if (ug[1] - ug[0] !== w) continue;
+            var same = true;
+            for (var xx = 0; xx < w && same; xx++) {
+              for (var yy = 0; yy < im.height; yy++) {
+                var a = ((yy * im.width + ug[0] + xx) * 4);
+                var b2 = ((yy * im.width + sg[0] + xx) * 4);
+                if (d[a] !== d[b2] || d[a + 1] !== d[b2 + 1] || d[a + 2] !== d[b2 + 2] || d[a + 3] !== d[b2 + 3]) { same = false; break; }
+              }
+            }
+            if (same) { dup = true; break; }
+          }
+          if (!dup) uniq.push(sg);
+        });
+        segs = uniq;
+        if (!segs.length) { info.textContent = t("scq.none"); info.style.color = "var(--danger)"; return; }
+      }
       // 每帧统一左右边界（取并集再收紧到内容）
       var minL = Infinity, maxR = -Infinity;
       segs.forEach(function (sg) { minL = Math.min(minL, sg[0]); maxR = Math.max(maxR, sg[1]); });
@@ -391,6 +546,7 @@
       UI.el("span", { class: "hint-text" }, [t("scq.alpha")]), alphaIn,
       UI.el("span", { class: "hint-text" }, [t("scq.pad")]), padIn, run
     ]));
+    pane.appendChild(skipDup.el);
   };
 
   /* ========== 大图切分：按行列 + 重叠率切分 → ZIP ========== */
@@ -408,22 +564,32 @@
       }
     });
     var info = UI.el("div", { class: "hint-text mt8" }, []);
-    var cIn = numInput(2, 1, 64), rIn = numInput(2, 1, 64);
-    var ovIn = numInput(0, 0, 80);
+    var cIn = numInput(2, 1, 40), rIn = numInput(2, 1, 40);
+    var ovIn = numInput(15, 0, 50);
     var run = UI.btn(t("ls.run"), "btn-primary", function () {
       if (!im) return;
-      var C = Math.max(1, +cIn.value | 0), R = Math.max(1, +rIn.value | 0);
-      var ov = Math.min(80, Math.max(0, +ovIn.value | 0));
-      var cw = Math.floor(im.width / C), ch = Math.floor(im.height / R);
-      var px = Math.floor(cw * ov / 100), py = Math.floor(ch * ov / 100);
+      var C = Math.max(1, Math.min(40, +cIn.value | 0)), R = Math.max(1, Math.min(40, +rIn.value | 0));
+      var ov = Math.min(50, Math.max(0, (+ovIn.value || 0))) / 100;
+      // 原站 Qo 公式：tileLen = len/(n−(n−1)ov)，step = tileLen*(1−ov)，末块强制贴底
+      function splitAxis(len, n) {
+        var tileLen = len / (n - (n - 1) * ov);
+        var step = tileLen * (1 - ov);
+        var starts = [];
+        for (var p = 0; p < n; p++) {
+          var s = p * step;
+          if (p === n - 1) s = len - tileLen; // 末块贴底
+          starts.push(Math.max(0, Math.min(len - 1, Math.round(s))));
+        }
+        var size = Math.max(1, Math.round(tileLen));
+        return { starts: starts, size: size };
+      }
+      var SX = splitAxis(im.width, C), SY = splitAxis(im.height, R);
       var srcCv = UI.imageDataToCanvas(im);
       var jobs = [];
       for (var ry = 0; ry < R; ry++) {
         for (var rx = 0; rx < C; rx++) {
-          var x = Math.max(0, rx * cw - px);
-          var y = Math.max(0, ry * ch - py);
-          var w = Math.min(im.width - x, cw + px * 2);
-          var h = Math.min(im.height - y, ch + py * 2);
+          var x = SX.starts[rx], y = SY.starts[ry];
+          var w = Math.min(im.width - x, SX.size), h = Math.min(im.height - y, SY.size);
           var cv2 = UI.makeCanvas(w, h);
           cv2.getContext("2d").drawImage(srcCv, x, y, w, h, 0, 0, w, h);
           jobs.push({ name: name + "_r" + (ry + 1) + "c" + (rx + 1) + ".png", canvas: cv2 });
@@ -782,19 +948,30 @@
       }
     });
     var info = UI.el("div", { class: "hint-text mt8" }, []);
-    var alphaIn = numInput(16, 1, 254);
+    var thrIn = numInput(24, 1, 254);
+    var minPxIn = numInput(4, 1, 999);
+    var mergeGapIn = numInput(0, 0, 64);
+    var sortSel = UI.selectRow(t("ss.sort"), [
+      { v: "row", label: t("ss.sort.row") }, { v: "col", label: t("ss.sort.col") }
+    ], "row", {});
     function detectRegions() {
-      // 基于连通域的零散元素识别（BFS 4邻接，alpha 阈值）
-      var A = +alphaIn.value | 0;
+      // 原站语义：以背景色（默认取左上角像素，可改白色）距离阈值识别前景，BFS 4 邻接连通域
+      var thr = +thrIn.value | 0;
+      var minPx = Math.max(1, +minPxIn.value | 0);
+      var mergeGap = Math.max(0, +mergeGapIn.value | 0);
       var W = im.width, H = im.height, d = im.data;
+      var bg = [d[0], d[1], d[2], d[3]];
+      function isFg(i) {
+        if (d[i + 3] === 0) return false;
+        var dr = d[i] - bg[0], dg = d[i + 1] - bg[1], db = d[i + 2] - bg[2];
+        return Math.sqrt(dr * dr + dg * dg + db * db) > thr;
+      }
       var seen = new Uint8Array(W * H);
       var regions = [];
-      var step = 1;
-      for (var y = 0; y < H; y += step) {
-        for (var x = 0; x < W; x += step) {
+      for (var y = 0; y < H; y++) {
+        for (var x = 0; x < W; x++) {
           if (seen[y * W + x]) continue;
-          if (d[(y * W + x) * 4 + 3] <= A) { seen[y * W + x] = 1; continue; }
-          // BFS
+          if (!isFg((y * W + x) * 4)) { seen[y * W + x] = 1; continue; }
           var q = [[x, y]], head = 0;
           seen[y * W + x] = 1;
           var minX = x, maxX = x, minY = y, maxY = y, cnt = 0;
@@ -807,12 +984,64 @@
               if (n[0] < 0 || n[1] < 0 || n[0] >= W || n[1] >= H) return;
               var ii = n[1] * W + n[0];
               if (seen[ii]) return;
-              if (d[ii * 4 + 3] > A) { seen[ii] = 1; q.push(n); }
+              if (isFg(ii * 4)) { seen[ii] = 1; q.push(n); }
               else seen[ii] = 1;
             });
           }
-          if (cnt >= 6) regions.push({ x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 });
+          if (cnt >= minPx) regions.push({ x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 });
         }
+      }
+      // mergeGap：包围盒间隙 ≤mergeGap 的区域两两合并（迭代至稳定）
+      if (mergeGap > 0) {
+        var changed = true;
+        while (changed) {
+          changed = false;
+          outer:
+          for (var i = 0; i < regions.length; i++) {
+            for (var j = i + 1; j < regions.length; j++) {
+              var a = regions[i], b = regions[j];
+              var gx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w));
+              var gy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h));
+              if (gx <= mergeGap && gy <= mergeGap) {
+                var nx = Math.min(a.x, b.x), ny = Math.min(a.y, b.y);
+                var nw = Math.max(a.x + a.w, b.x + b.w) - nx, nh = Math.max(a.y + a.h, b.y + b.h) - ny;
+                regions[i] = { x: nx, y: ny, w: nw, h: nh };
+                regions.splice(j, 1);
+                changed = true;
+                break outer;
+              }
+            }
+          }
+        }
+      }
+      // 排序：row-major（y±8 聚行，行内按 x）/ col-major（x±8 聚列，列内按 y）
+      var TOL = 8;
+      if (sortSel.value === "row") {
+        regions.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+        var rows = [];
+        regions.forEach(function (r2) {
+          var row = rows.find(function (rw) { return Math.abs(rw.y - r2.y) <= TOL; });
+          if (row) row.items.push(r2);
+          else rows.push({ y: r2.y, items: [r2] });
+        });
+        regions = [];
+        rows.forEach(function (rw) {
+          rw.items.sort(function (a, b) { return a.x - b.x; });
+          regions = regions.concat(rw.items);
+        });
+      } else {
+        regions.sort(function (a, b) { return a.x - b.x || a.y - b.y; });
+        var cols = [];
+        regions.forEach(function (r3) {
+          var col = cols.find(function (cl) { return Math.abs(cl.x - r3.x) <= TOL; });
+          if (col) col.items.push(r3);
+          else cols.push({ x: r3.x, items: [r3] });
+        });
+        regions = [];
+        cols.forEach(function (cl) {
+          cl.items.sort(function (a, b) { return a.y - b.y; });
+          regions = regions.concat(cl.items);
+        });
       }
       return regions;
     }
@@ -926,11 +1155,226 @@
       });
     });
     pane.appendChild(dz); pane.appendChild(info);
-    pane.appendChild(UI.el("div", { class: "row mt8", style: { gap: "6px", flexWrap: "wrap" } }, [
-      useDetect.el,
-      UI.el("span", { class: "hint-text" }, [t("scq.alpha")]), alphaIn, clearBtn
+    pane.appendChild(UI.el("div", { class: "param-grid" }, [
+      UI.el("div", { class: "param-row" }, [useDetect.el, UI.el("span", { class: "hint-text" }, [t("scq.alpha")]), thrIn, clearBtn]),
+      UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("ss.minpx")]), minPxIn, UI.el("label", {}, [t("ss.mergegap")]), mergeGapIn]),
+      sortSel.el
     ]));
     pane.appendChild(cvWrap);
     pane.appendChild(UI.el("div", { class: "mt14" }, [run]));
+  };
+
+  /* ========== 像素引擎 pixelCore（原站 7 步流水线 1:1 复刻）==========
+   * 网格评分 → 格心重建 → 区域合并 → 量化 → 量化后合并 → (可选连通域预处理) → 输出 1px 逻辑图
+   * 公式来源：线上 v5.0 主包 l1/rz/iz/lz/az/sz 流水线 */
+  PP.pixelCore = function (pane) {
+    var im = null;
+    var dz = UI.dropzone({
+      accept: "image/*", main: t("chroma.drop"), hint: t("pc.hint"),
+      onFiles: function (files) {
+        UI.fileToImage(files[0]).then(function (r) {
+          im = UI.imageDataFrom(r.img, 4096); r.release();
+          info.textContent = t("pixel.loaded") + " " + im.width + "×" + im.height;
+        });
+      }
+    });
+    var info = UI.el("div", { class: "hint-text mt8" }, []);
+
+    function clampN(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function dist4(a, b) {
+      var dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2], da = a[3] - b[3];
+      return Math.sqrt(dr * dr + dg * dg + db * db + da * da);
+    }
+
+    /* 步骤1：自动网格检测 rz —— score = onGrid − 0.68*offGrid + 整除奖励 */
+    function detectGrid(img, maxSize) {
+      var W = img.width, H = img.height, d = img.data;
+      function lineDist(vertical, pitch, phase) {
+        // vertical=true：比较竖直格线两侧 (x,y) vs (x-1,y)，x 按 pitch 遍历（0..W）
+        var sum = 0, cnt = 0;
+        var outerLen = vertical ? W : H;
+        var innerLen = vertical ? H : W;
+        var step = Math.max(1, Math.floor(innerLen / 220)); // 抽样限流
+        for (var o = phase; o < outerLen; o += pitch) {
+          if (o === 0) continue;
+          for (var i2 = 0; i2 < innerLen; i2 += step) {
+            var x1 = vertical ? o : i2, y1 = vertical ? i2 : o;
+            var x0 = vertical ? o - 1 : i2, y0 = vertical ? i2 : o - 1;
+            var a = (y1 * W + x1) * 4, b = (y0 * W + x0) * 4;
+            sum += dist4([d[a], d[a + 1], d[a + 2], d[a + 3]], [d[b], d[b + 1], d[b + 2], d[b + 3]]);
+            cnt++;
+          }
+        }
+        return cnt ? sum / cnt : 0;
+      }
+      var best = null, second = -1;
+      for (var c = 2; c <= maxSize; c++) {
+        var onGrid = (lineDist(true, c, 0) + lineDist(false, c, 0)) / 2;
+        var offGrid = (lineDist(true, c, Math.floor(c / 2)) + lineDist(false, c, Math.floor(c / 2))) / 2;
+        var bonus = (W % c === 0 ? 4 : 0) + (H % c === 0 ? 4 : 0);
+        var score = onGrid - offGrid * 0.68 + bonus;
+        if (!best || score > best.score) {
+          if (best) second = best.score;
+          best = { c: c, score: score };
+        } else if (score > second) second = score;
+      }
+      if (!best || best.score < 12 || (second >= 0 && best.score - second < 1.5)) return 1;
+      return best.c;
+    }
+
+    /* 步骤3：区域合并 lz —— fillRatio = clamp(0.36+th*0.06, 0.42, 0.92)；主色占比达标或颜色≤2 → 整格填主色 */
+    function regionMerge(img, t, th, enabled) {
+      var cv = UI.imageDataToCanvas(img);
+      if (!enabled || t <= 1) return cv;
+      var W = img.width, H = img.height, d = img.data;
+      var fillRatio = clampN(0.36 + (+th || 1.3) * 0.06, 0.42, 0.92);
+      var oim = cv.getContext("2d").getImageData(0, 0, W, H);
+      var od = oim.data;
+      var cols = Math.floor(W / t), rows = Math.floor(H / t);
+      for (var gy = 0; gy < rows; gy++) {
+        for (var gx = 0; gx < cols; gx++) {
+          var freq = {}, total = 0, bestC = null, bestN = 0;
+          for (var py = 0; py < t; py++) {
+            var sy = gy * t + py;
+            for (var px = 0; px < t; px++) {
+              var sx = gx * t + px;
+              var si = (sy * W + sx) * 4;
+              var key = d[si] + "," + d[si + 1] + "," + d[si + 2] + "," + d[si + 3];
+              var n1 = (freq[key] || 0) + 1;
+              freq[key] = n1;
+              total++;
+              if (n1 > bestN) { bestN = n1; bestC = key; }
+            }
+          }
+          if (bestN / total >= fillRatio || Object.keys(freq).length <= 2) {
+            var bc = bestC.split(",");
+            for (var py2 = 0; py2 < t; py2++) {
+              for (var px2 = 0; px2 < t; px2++) {
+                var di = ((gy * t + py2) * W + gx * t + px2) * 4;
+                od[di] = +bc[0]; od[di + 1] = +bc[1]; od[di + 2] = +bc[2]; od[di + 3] = +bc[3];
+              }
+            }
+          }
+        }
+      }
+      cv.getContext("2d").putImageData(oim, 0, 0);
+      return cv;
+    }
+
+    /* 步骤5：量化后合并 sz —— mergeDist = clamp(delta*4.5, 4, 90)，按频次降序归并到首个近代表色 */
+    function mergeAfterQuantize(img, delta) {
+      var d = img.data;
+      var freq = {}, list = [];
+      for (var i = 0; i < d.length; i += 4) {
+        var key = d[i] + "," + d[i + 1] + "," + d[i + 2] + "," + d[i + 3];
+        if (!freq[key]) { freq[key] = { c: [d[i], d[i + 1], d[i + 2], d[i + 3]], n: 0 }; list.push(freq[key]); }
+        freq[key].n++;
+      }
+      if (list.length < 2) return;
+      list.sort(function (a, b) { return b.n - a.n; });
+      var mergeDist = clampN(delta * 4.5, 4, 90);
+      var reps = [], map = {};
+      list.forEach(function (item) {
+        var key = item.c.join(",");
+        if (map[key] !== undefined) { item.target = map[key]; return; }
+        var hit = null;
+        for (var r = 0; r < reps.length; r++) {
+          if (dist4(item.c, reps[r].c) <= mergeDist) { hit = reps[r]; break; }
+        }
+        if (hit) { map[key] = hit; item.target = hit; }
+        else { reps.push(item); map[key] = item; }
+      });
+      for (var i2 = 0; i2 < d.length; i2 += 4) {
+        var key2 = d[i2] + "," + d[i2 + 1] + "," + d[i2 + 2] + "," + d[i2 + 3];
+        var tgt = freq[key2] && freq[key2].target;
+        if (tgt) {
+          d[i2] = tgt.c[0]; d[i2 + 1] = tgt.c[1]; d[i2 + 2] = tgt.c[2]; d[i2 + 3] = tgt.c[3];
+        }
+      }
+    }
+
+    var go = UI.btn(t("pc.run"), "btn-primary", function () {
+      if (!im) return;
+      var auto = gridMode.value === "auto";
+      var maxSize = clampN(+gMax.value | 0 || 16, 1, 16);
+      var gridSize = auto ? detectGrid(im, maxSize) : clampN(+gSize.value | 0 || 4, 1, 16);
+      var doRun = function (work) {
+        // 步骤3：区域合并
+        var merged = UI.imageDataFrom(regionMerge(work, gridSize, regThIn.value, regEn.value), 4096);
+        var finish = function (img) {
+          // 输出：按 effectiveGridSize 收缩为 1px 逻辑图（格心采样）
+          var t = gridSize;
+          var out;
+          if (t > 1) {
+            var W = img.width, H = img.height, d = img.data;
+            out = UI.makeCanvas(Math.max(1, Math.floor(W / t)), Math.max(1, Math.floor(H / t)));
+            var oim = out.getContext("2d").createImageData(out.width, out.height);
+            for (var cy = 0; cy < out.height; cy++) {
+              for (var cx = 0; cx < out.width; cx++) {
+                var sx = Math.min(W - 1, cx * t + Math.floor(t / 2));
+                var sy = Math.min(H - 1, cy * t + Math.floor(t / 2));
+                var si = (sy * W + sx) * 4, di = (cy * out.width + cx) * 4;
+                oim.data[di] = d[si]; oim.data[di + 1] = d[si + 1];
+                oim.data[di + 2] = d[si + 2]; oim.data[di + 3] = d[si + 3];
+              }
+            }
+            out.getContext("2d").putImageData(oim, 0, 0);
+          } else {
+            out = UI.imageDataToCanvas(img);
+          }
+          stat.textContent = t("pc.stat")
+            .replace("{cols}", Math.floor(im.width / t)).replace("{rows}", Math.floor(im.height / t))
+            .replace("{t}", String(t))
+            .replace("{w}", out.width).replace("{h}", out.height);
+          show(out);
+        };
+        // 步骤4+5：量化（delta>14 启用 FS 抖动，否则最近邻）+ 量化后合并
+        if (qEn.value) {
+          var colors = clampN(+qColors.value | 0 || 64, 2, 512);
+          var delta = clampN(+qDelta.value | 0 || 2, 1, 20);
+          FF.Wasm.quantize(merged, 9, 100, delta > 14 ? 1 : 0, 1, colors).then(function (q) {
+            mergeAfterQuantize(q, delta);
+            finish(q);
+          }).catch(function () { finish(merged); });
+        } else {
+          finish(merged);
+        }
+      };
+      // 预处理：连通域去背（与蓝图 matteContiguous 同语义），失败用原图继续
+      if (matteSw.value) {
+        FF.Wasm.chromaKey(im, { mode: 5, tol: clampN(+matteTol.value | 0 || 80, 0, 150), feather: 5, suppress: 0 })
+          .then(doRun)
+          .catch(function () { doRun(im); });
+      } else {
+        doRun(im);
+      }
+    });
+
+    var stat = UI.el("div", { class: "hint-text mt8" }, []);
+    var gridMode = UI.selectRow(t("pc.gridmode"), [
+      { v: "auto", label: t("pc.auto") }, { v: "manual", label: t("pc.manual") }
+    ], "auto", {});
+    var gSize = numInput(4, 1, 16);
+    var gMax = numInput(16, 1, 16);
+    var matteSw = UI.switchRow(t("pc.matte"), true, function () {});
+    var matteTol = numInput(80, 0, 150);
+    var qEn = UI.switchRow(t("pc.qen"), true, function () {});
+    var qColors = numInput(64, 2, 512);
+    var qDelta = numInput(2, 1, 20);
+    var regEn = UI.switchRow(t("pc.regen"), true, function (v) { regThIn.disabled = !v; });
+    var regThIn = numInput(1.3, 0.1, 10);
+
+    var show = resultBox(pane, t("pp.tab.pixelcore"));
+    pane.appendChild(dz); pane.appendChild(info);
+    pane.appendChild(UI.el("div", { class: "param-grid" }, [
+      gridMode.el,
+      UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("pc.gsize")]), gSize]),
+      UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("pc.gmax")]), gMax]),
+      UI.el("div", { class: "param-row" }, [matteSw.el, UI.el("label", {}, [t("pc.mattetol")]), matteTol]),
+      UI.el("div", { class: "param-row" }, [qEn.el, UI.el("label", {}, [t("pc.qcolors")]), qColors, UI.el("label", {}, [t("pc.qdelta")]), qDelta]),
+      UI.el("div", { class: "param-row" }, [regEn.el, UI.el("label", {}, [t("pc.regth")]), regThIn])
+    ]));
+    pane.appendChild(UI.el("div", { class: "mt14" }, [go]));
+    pane.appendChild(stat);
   };
 })();

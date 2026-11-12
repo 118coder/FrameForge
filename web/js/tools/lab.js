@@ -156,13 +156,55 @@
     var cv = UI.makeCanvas(480, 320);
     cv.style.imageRendering = "pixelated";
     var ctx = cv.getContext("2d");
-    var player = { x: 40, y: 40, w: 24, h: 24, speed: 2.2, run: 3.6 };
+    var player = { x: 40, y: 40, w: 24, h: 24, speed: 2.2, run: 3.6, dir: 0, frame: 0 };
     var obstacles = [{ x: 150, y: 90, w: 80, h: 40 }, { x: 300, y: 200, w: 100, h: 36 }];
     var keys = {};
     var editing = false, editStart = null, editCur = null;
+    // 原站 controlTest 增强：自定义精灵 sheet（3×3=252×252）+ 背景/前景/音乐 + I/J/K
+    var spriteImg = null, bgImg = null, fgImg = null, musicAudio = null;
+    var invOpen = false, shieldUntil = 0, magnetUntil = 0;
+    function uploadRow() {
+      var row = UI.el("div", { class: "row", style: { gap: "6px", flexWrap: "wrap", marginBottom: "8px" } }, []);
+      function mkUpload(label, accept, cb) {
+        var inp = UI.el("input", { type: "file", accept: accept, style: { display: "none" } });
+        inp.addEventListener("change", function () {
+          var f = inp.files && inp.files[0];
+          if (f) cb(f);
+        });
+        var b = UI.btn(label, "btn-outline btn-sm", function () { inp.click(); });
+        row.appendChild(b);
+        row.appendChild(inp);
+      }
+      mkUpload(t("lab.ct.sprite"), "image/*", function (f) {
+        UI.fileToImage(f).then(function (r) {
+          spriteImg = r.img; r.release();
+          player.w = Math.floor(spriteImg.naturalWidth / 3 * 0.8) || 24;
+          player.h = Math.floor(spriteImg.naturalHeight / 3 * 0.8) || 24;
+        });
+      });
+      mkUpload(t("lab.ct.bg"), "image/*", function (f) {
+        UI.fileToImage(f).then(function (r) { bgImg = r.img; r.release(); });
+      });
+      mkUpload(t("lab.ct.fg"), "image/*", function (f) {
+        UI.fileToImage(f).then(function (r) { fgImg = r.img; r.release(); });
+      });
+      mkUpload(t("lab.ct.music"), "audio/*", function (f) {
+        if (musicAudio) musicAudio.pause();
+        musicAudio = new Audio(URL.createObjectURL(f));
+        musicAudio.loop = true;
+        musicAudio.volume = 0.35;
+        musicAudio.play().catch(function () { /* 需手势后再点上传即有手势 */ });
+      });
+      return row;
+    }
+    pane.insertBefore(uploadRow(), pane.firstChild);
 
     function draw() {
-      ctx.fillStyle = "#2d4a2d"; ctx.fillRect(0, 0, cv.width, cv.height);
+      if (bgImg) {
+        ctx.drawImage(bgImg, 0, 0, cv.width, cv.height);
+      } else {
+        ctx.fillStyle = "#2d4a2d"; ctx.fillRect(0, 0, cv.width, cv.height);
+      }
       // 网格
       ctx.strokeStyle = "rgba(0,0,0,0.12)";
       for (var x = 0; x < cv.width; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke(); }
@@ -179,14 +221,38 @@
           Math.abs(editCur.x - editStart.x), Math.abs(editCur.y - editStart.y));
         ctx.setLineDash([]);
       }
-      // 角色（像素小人）
-      ctx.fillStyle = "#e8b04b";
-      ctx.fillRect(player.x, player.y, player.w, player.h);
-      ctx.fillStyle = "#b64a2e";
-      ctx.fillRect(player.x + 4, player.y + 4, 6, 6);
+      // 角色：自定义精灵（3×3 sheet 行=方向 下/左/右，列=步帧）或像素小人
+      if (spriteImg) {
+        var fw = Math.floor(spriteImg.naturalWidth / 3), fh = Math.floor(spriteImg.naturalHeight / 3);
+        ctx.drawImage(spriteImg, player.frame * fw, player.dir * fh, fw, fh, player.x, player.y, player.w, player.h);
+      } else {
+        ctx.fillStyle = "#e8b04b";
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+        ctx.fillStyle = "#b64a2e";
+        ctx.fillRect(player.x + 4, player.y + 4, 6, 6);
+      }
+      // K 防御护盾 / J 吸引光环（原站 controlTest 行为）
+      if (Date.now() < shieldUntil) {
+        ctx.strokeStyle = "rgba(110,190,255,0.8)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(player.x + player.w / 2, player.y + player.h / 2, player.w, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (Date.now() < magnetUntil) {
+        ctx.strokeStyle = "rgba(255,210,110,0.6)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(player.x + player.w / 2, player.y + player.h / 2, player.w * 2, 0, Math.PI * 2); ctx.stroke();
+      }
+      // 前景
+      if (fgImg) ctx.drawImage(fgImg, 0, 0, cv.width, cv.height);
+      // I 物品栏
+      if (invOpen) {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(8, 8, 24 * 4 + 10, 34);
+        for (var ii = 0; ii < 4; ii++) {
+          ctx.strokeStyle = "#a08e71"; ctx.strokeRect(13 + ii * 24 + 0.5, 13.5, 20, 20);
+        }
+      }
       ctx.fillStyle = "#1a1a1a";
       ctx.font = "10px monospace";
-      ctx.fillText("WASD 移动 · Shift 跑步 · 拖拽绘制障碍 · C 清空", 8, cv.height - 8);
+      ctx.fillText("WASD 移动 · Shift 跑步 · I 物品 · J 吸引 · K 防御 · 拖拽障碍 · C 清空", 8, cv.height - 8);
     }
 
     function step() {
@@ -199,7 +265,11 @@
       var hit = obstacles.some(function (o) {
         return nx < o.x + o.w && nx + player.w > o.x && ny < o.y + o.h && ny + player.h > o.y;
       });
-      if (!hit) { player.x = nx; player.y = ny; }
+      if (!hit) {
+        if (nx !== player.x || ny !== player.y) player.frame = (player.frame + 1) % 3;
+        player.x = nx; player.y = ny;
+        if (keys["s"]) player.dir = 0; else if (keys["a"]) player.dir = 1; else if (keys["d"]) player.dir = 2; else if (keys["w"]) player.dir = 0;
+      }
       draw();
       raf = requestAnimationFrame(step);
     }
@@ -214,7 +284,11 @@
     function onDown(e) {
       if (e.key === "c" || e.key === "C") { obstacles = []; return; }
       var kk = keyTo(e.key);
-      if (kk) { keys[kk] = true; e.preventDefault(); }
+      if (kk) { keys[kk] = true; e.preventDefault(); return; }
+      var lk = e.key.toLowerCase();
+      if (lk === "i") { invOpen = !invOpen; e.preventDefault(); }
+      else if (lk === "j") { magnetUntil = Date.now() + 3000; e.preventDefault(); }
+      else if (lk === "k") { shieldUntil = Date.now() + 3000; e.preventDefault(); }
     }
     function onUp(e) {
       var kk = keyTo(e.key);

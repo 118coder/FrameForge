@@ -36,7 +36,7 @@
     matteContiguous: {
       title: "左上角连通域抠图", color: "#b64a2e",
       params: [
-        { k: "tol", label: "容差", type: "range", min: 0, max: 100, def: 80 },
+        { k: "tol", label: "容差", type: "range", min: 0, max: 150, def: 80 },
         { k: "feather", label: "羽化", type: "range", min: 0, max: 100, def: 5 }
       ]
     },
@@ -90,6 +90,236 @@
         { k: "delRow", label: "删除行序号（-1=不删）", type: "number", def: -1 }
       ]
     },
+    /* ===== 原站 v5 workflow 节点扩充（默认参数与主包 I9 节点表对齐） ===== */
+    crop: {
+      title: "四边裁切", color: "#7a4a8a",
+      params: [
+        { k: "left", label: "左", type: "number", def: 0 },
+        { k: "top", label: "上", type: "number", def: 0 },
+        { k: "right", label: "右", type: "number", def: 0 },
+        { k: "bottom", label: "下", type: "number", def: 0 }
+      ]
+    },
+    padExpand: {
+      title: "四边扩透明", color: "#7a4a8a",
+      params: [
+        { k: "padTop", label: "上", type: "number", def: 0 },
+        { k: "padRight", label: "右", type: "number", def: 0 },
+        { k: "padBottom", label: "下", type: "number", def: 0 },
+        { k: "padLeft", label: "左", type: "number", def: 0 }
+      ]
+    },
+    matteGlobal: {
+      title: "全图色键（左上取色）", color: "#b64a2e",
+      params: [
+        { k: "tolerance", label: "容差", type: "range", min: 0, max: 150, def: 80 },
+        { k: "feather", label: "羽化", type: "range", min: 0, max: 100, def: 5 }
+      ]
+    },
+    mattePostRepair: {
+      title: "去背修复（自合成+清底）", color: "#b64a2e",
+      params: []
+    },
+    alphaFrontierErode: {
+      title: "贴边 alpha 削减", color: "#b64a2e",
+      params: [{ k: "erosion", label: "削减量 (0-100)", type: "range", min: 0, max: 100, def: 0 }]
+    },
+    conditionalSuperEraser: {
+      title: "条件超级橡皮（种子色匹配才抠）", color: "#b64a2e",
+      params: [
+        { k: "seedX", label: "种子 X", type: "number", def: 0 },
+        { k: "seedY", label: "种子 Y", type: "number", def: 0 },
+        { k: "tolerance", label: "容差", type: "range", min: 0, max: 150, def: 30 }
+      ]
+    },
+    gridDeleteRow: {
+      title: "网格删行", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "行序号", type: "number", def: 1 }
+      ]
+    },
+    gridDeleteCol: {
+      title: "网格删列", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "列序号", type: "number", def: 1 }
+      ]
+    },
+    gridExpandRow: {
+      title: "网格插行", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "行序号", type: "number", def: 1 }
+      ]
+    },
+    gridExpandCol: {
+      title: "网格插列", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "列序号", type: "number", def: 1 }
+      ]
+    },
+    gridFlipRow: {
+      title: "网格行水平翻转", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "行序号", type: "number", def: 1 }
+      ]
+    },
+    gridFlipCol: {
+      title: "网格列垂直翻转", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "列序号", type: "number", def: 1 }
+      ]
+    },
+    gridCopyRow: {
+      title: "网格行复制", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "rowIndex", label: "源行序号", type: "number", def: 1 },
+        { k: "atRow", label: "目标行序号", type: "number", def: 2 }
+      ]
+    },
+    gridCopyCol: {
+      title: "网格列复制", color: "#7a4a8a",
+      params: [
+        { k: "gCols", label: "网格列", type: "number", def: 4 },
+        { k: "gRows", label: "网格行", type: "number", def: 4 },
+        { k: "colIndex", label: "源列序号", type: "number", def: 1 },
+        { k: "atCol", label: "目标列序号", type: "number", def: 2 }
+      ]
+    },
+    regionCopy: {
+      title: "区域复制", color: "#7a4a8a",
+      params: [
+        { k: "srcX1", label: "X1", type: "number", def: 0 },
+        { k: "srcY1", label: "Y1", type: "number", def: 0 },
+        { k: "srcX2", label: "X2", type: "number", def: 31 },
+        { k: "srcY2", label: "Y2", type: "number", def: 31 },
+        { k: "offsetX", label: "偏移 X", type: "number", def: 32 },
+        { k: "offsetY", label: "偏移 Y", type: "number", def: 0 },
+        { k: "clearTargetFirst", label: "先清目标区", type: "number", def: 0 }
+      ]
+    },
+    regionDelete: {
+      title: "区域清除", color: "#7a4a8a",
+      params: [
+        { k: "srcX1", label: "X1", type: "number", def: 0 },
+        { k: "srcY1", label: "Y1", type: "number", def: 0 },
+        { k: "srcX2", label: "X2", type: "number", def: 31 },
+        { k: "srcY2", label: "Y2", type: "number", def: 31 }
+      ]
+    },
+    movePixels: {
+      title: "区域移动", color: "#7a4a8a",
+      params: [
+        { k: "x1", label: "X1", type: "number", def: 0 },
+        { k: "y1", label: "Y1", type: "number", def: 0 },
+        { k: "x2", label: "X2", type: "number", def: 31 },
+        { k: "y2", label: "Y2", type: "number", def: 31 },
+        { k: "moveOffsetX", label: "移动 X", type: "number", def: 1 },
+        { k: "moveOffsetY", label: "移动 Y", type: "number", def: 0 }
+      ]
+    },
+    customGridRearrange: {
+      title: "网格重排（格号 1..n，0空，负=水平翻转）", color: "#7a4a8a",
+      params: [
+        { k: "splitCols", label: "源列数", type: "number", def: 2 },
+        { k: "splitRows", label: "源行数", type: "number", def: 2 },
+        { k: "outCols", label: "输出列数", type: "number", def: 2 },
+        { k: "outRows", label: "输出行数", type: "number", def: 2 },
+        { k: "map", label: "格号映射（逗号分隔，行主序）", type: "text", def: "1,2,3,4" }
+      ]
+    },
+    perfectPixel: {
+      title: "完美像素（节点）", color: "#8a6f2b",
+      params: [
+        { k: "minSize", label: "最小格", type: "range", min: 2, max: 16, def: 4 },
+        { k: "peakWidth", label: "峰宽", type: "range", min: 2, max: 20, def: 6 },
+        { k: "refineX100", label: "细化强度 %", type: "range", min: 0, max: 100, def: 25 },
+        { k: "fixSquare", label: "裁方(1/0)", type: "number", def: 0 },
+        { k: "manualGrid", label: "手动网格(1/0)", type: "number", def: 0 },
+        { k: "gridCols", label: "网格列", type: "number", def: 32 },
+        { k: "gridRows", label: "网格行", type: "number", def: 32 }
+      ]
+    },
+    evenSplitStrip: {
+      title: "均分展开为横带", color: "#7a4a8a",
+      params: [
+        { k: "evenCols", label: "列", type: "number", def: 4 },
+        { k: "evenRows", label: "行", type: "number", def: 4 }
+      ]
+    },
+    evenSplitPerCellEdge: {
+      title: "均分+每格扩/裁边", color: "#7a4a8a",
+      params: [
+        { k: "evenCols", label: "列", type: "number", def: 4 },
+        { k: "evenRows", label: "行", type: "number", def: 4 },
+        { k: "cellEdgeMode", label: "模式(0扩1裁)", type: "number", def: 0 },
+        { k: "edgeL", label: "左", type: "number", def: 0 },
+        { k: "edgeT", label: "上", type: "number", def: 0 },
+        { k: "edgeR", label: "右", type: "number", def: 0 },
+        { k: "edgeB", label: "下", type: "number", def: 0 }
+      ]
+    },
+    mergeStrip: {
+      title: "条带重排为网格", color: "#7a4a8a",
+      params: [
+        { k: "mergeCols", label: "列数", type: "number", def: 4 },
+        { k: "frameCount", label: "帧数(0=按frameW)", type: "number", def: 16 },
+        { k: "frameW", label: "帧宽(frameCount=0时)", type: "number", def: 32 }
+      ]
+    },
+    simpleStitchVertical: {
+      title: "拼接（多输入简版：单图复制）", color: "#7a4a8a",
+      params: [
+        { k: "stitchMode", label: "0竖叠/1横排/2叠加", type: "number", def: 0 },
+        { k: "stitchSlotCount", label: "槽位数", type: "number", def: 2 }
+      ]
+    },
+    apiImageGenerate: {
+      title: "AI 生图（走全局 API 设置）", color: "#b05a8a",
+      params: [
+        { k: "prompt", label: "提示词（一行一次，多行=多次）", type: "text", def: "" },
+        { k: "useUpstream", label: "图生图(用上游图)", type: "number", def: 1 }
+      ]
+    },
+    timeGate: {
+      title: "时间闸（过期阻断）", color: "#7a4a8a",
+      params: [{ k: "expiresAtMs", label: "过期时间戳 ms", type: "number", def: 0 }]
+    },
+    copyBranch: {
+      title: "分支复制（配合多出边）", color: "#7a4a8a",
+      params: [{ k: "copyOutCount", label: "分支数（引擎自动沿多出边）", type: "number", def: 2 }]
+    },
+    complexRegionCopy: {
+      title: "区域多重复制", color: "#7a4a8a",
+      params: [
+        { k: "srcX1", label: "X1", type: "number", def: 0 },
+        { k: "srcY1", label: "Y1", type: "number", def: 0 },
+        { k: "srcX2", label: "X2", type: "number", def: 31 },
+        { k: "srcY2", label: "Y2", type: "number", def: 31 },
+        { k: "offsets", label: "偏移列表 x,y;x,y;…", type: "text", def: "32,0" },
+        { k: "clearTargetFirst", label: "先清目标区", type: "number", def: 0 }
+      ]
+    },
+    matteDoubleBackground: {
+      title: "双背景去背（需白底图）", color: "#b64a2e",
+      params: [
+        { k: "tolerance", label: "容差", type: "range", min: 0, max: 100, def: 70 },
+        { k: "edgeContrast", label: "边缘对比", type: "range", min: 0, max: 100, def: 53 },
+        { k: "whiteData", label: "白底图 dataURL", type: "text", def: "" }
+      ]
+    },
     output: {
       title: "输出结果", color: "#4a7c59",
       params: []
@@ -109,6 +339,100 @@
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(src, 0, 0, w, h);
     return ctx.getImageData(0, 0, w, h);
+  }
+
+  function clampPx(v, max) { return Math.max(0, Math.min(max - 1, v | 0)); }
+
+  /* 原站 grid 系节点：删/插/翻转/复制 行或列（gCols×gRows 网格语义） */
+  function gridCellOp(type, im, p) {
+    var cols = Math.max(1, Number(p.gCols) || 1), rows = Math.max(1, Number(p.gRows) || 1);
+    var cw = Math.floor(im.width / cols), ch = Math.floor(im.height / rows);
+    var src = UI.imageDataToCanvas(im);
+    var srcCtx = src.getContext("2d");
+    function drawCell(ctx, srcCx, srcCy, dstCx, dstCy, flipX, flipY) {
+      if (srcCx < 0 || srcCy < 0 || srcCx >= cols || srcCy >= rows) return;
+      if (flipX || flipY) {
+        ctx.save();
+        ctx.translate((dstCx + (flipX ? 1 : 0)) * cw, (dstCy + (flipY ? 1 : 0)) * ch);
+        ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+        ctx.drawImage(src, srcCx * cw, srcCy * ch, cw, ch, 0, 0, cw, ch);
+        ctx.restore();
+      } else {
+        ctx.drawImage(src, srcCx * cw, srcCy * ch, cw, ch, dstCx * cw, dstCy * ch, cw, ch);
+      }
+    }
+    function renderGrid(outCols, outRows, fillFn) {
+      var out = UI.makeCanvas(outCols * cw, outRows * ch);
+      var octx = out.getContext("2d");
+      for (var r = 0; r < outRows; r++) {
+        for (var c = 0; c < outCols; c++) {
+          var cell = fillFn(r, c);
+          if (!cell) continue;
+          drawCell(octx, cell[0], cell[1], c, r, cell[2], cell[3]);
+        }
+      }
+      return out.getContext("2d").getImageData(0, 0, out.width, out.height);
+    }
+    switch (type) {
+      case "gridDeleteRow": {
+        var ri = Number(p.rowIndex) | 0;
+        if (ri < 0 || ri >= rows) return im;
+        return renderGrid(cols, rows - 1, function (r, c) {
+          var sr = r < ri ? r : r + 1;
+          return [c, sr, false, false];
+        });
+      }
+      case "gridDeleteCol": {
+        var ci = Number(p.colIndex) | 0;
+        if (ci < 0 || ci >= cols) return im;
+        return renderGrid(cols - 1, rows, function (r, c) {
+          var sc = c < ci ? c : c + 1;
+          return [sc, r, false, false];
+        });
+      }
+      case "gridExpandRow": {
+        var ri2 = Math.max(0, Math.min(rows, Number(p.rowIndex) | 0));
+        return renderGrid(cols, rows + 1, function (r, c) {
+          return [c, r < ri2 ? r : r - 1, false, false];
+        });
+      }
+      case "gridExpandCol": {
+        var ci2 = Math.max(0, Math.min(cols, Number(p.colIndex) | 0));
+        return renderGrid(cols + 1, rows, function (r, c) {
+          return [c < ci2 ? c : c - 1, r, false, false];
+        });
+      }
+      case "gridFlipRow": {
+        var ri3 = Number(p.rowIndex) | 0;
+        return renderGrid(cols, rows, function (r, c) {
+          return [c, r, r === ri3, false];
+        });
+      }
+      case "gridFlipCol": {
+        var ci3 = Number(p.colIndex) | 0;
+        return renderGrid(cols, rows, function (r, c) {
+          return [c, r, false, c === ci3];
+        });
+      }
+      case "gridCopyRow": {
+        // 原站 $z：把 rowIndex 行复制插入到 atRow 位置，输出高度 +ch
+        var from = Math.max(0, Math.min(rows - 1, Number(p.rowIndex) | 0));
+        var to = Math.max(0, Math.min(rows, Number(p.atRow) | 0));
+        return renderGrid(cols, rows + 1, function (r, c) {
+          var sr = r < to ? r : (r === to ? from : r - 1);
+          return [c, sr, false, false];
+        });
+      }
+      case "gridCopyCol": {
+        var fromC = Math.max(0, Math.min(cols - 1, Number(p.colIndex) | 0));
+        var toC = Math.max(0, Math.min(cols, Number(p.atCol) | 0));
+        return renderGrid(cols + 1, rows, function (r, c) {
+          var sc = c < toC ? c : (c === toC ? fromC : c - 1);
+          return [sc, r, false, false];
+        });
+      }
+    }
+    return im;
   }
 
   function execNode(node, im) {
@@ -167,6 +491,343 @@
           }
         }
         return Promise.resolve(out.getContext("2d").getImageData(0, 0, outCols * cw, outRows * ch));
+      }
+      /* ===== 原站 v5 workflow 节点执行器（纯本地像素操作） ===== */
+      case "crop": {
+        var L = Math.max(0, Number(p.left) || 0), T = Math.max(0, Number(p.top) || 0);
+        var R = Math.max(0, Number(p.right) || 0), B = Math.max(0, Number(p.bottom) || 0);
+        var w2 = im.width - L - R, h2 = im.height - T - B;
+        if (w2 < 1 || h2 < 1) return Promise.reject(new Error("裁切过大"));
+        var c3 = UI.makeCanvas(w2, h2);
+        c3.getContext("2d").drawImage(UI.imageDataToCanvas(im), L, T, w2, h2, 0, 0, w2, h2);
+        return Promise.resolve(c3.getContext("2d").getImageData(0, 0, w2, h2));
+      }
+      case "padExpand": {
+        var pt = Math.max(0, Number(p.padTop) || 0), pr = Math.max(0, Number(p.padRight) || 0);
+        var pb = Math.max(0, Number(p.padBottom) || 0), pl = Math.max(0, Number(p.padLeft) || 0);
+        var w3 = im.width + pl + pr, h3 = im.height + pt + pb;
+        var c4 = UI.makeCanvas(w3, h3);
+        c4.getContext("2d").drawImage(UI.imageDataToCanvas(im), pl, pt);
+        return Promise.resolve(c4.getContext("2d").getImageData(0, 0, w3, h3));
+      }
+      case "matteGlobal": {
+        // 全图色键：键色 = 左上角像素（原站语义），mode3
+        var d0 = im.data;
+        return FF.Wasm.chromaKey(im, {
+          mode: 3, tol: Number(p.tolerance), feather: Number(p.feather),
+          suppress: 0, c1: [d0[0], d0[1], d0[2]], c2: [0, 0, 255]
+        });
+      }
+      case "mattePostRepair":
+        return FF.Wasm.matteRepair(im);
+      case "alphaFrontierErode": {
+        // 原站 Zz→Kz：passes = min(56, round(erosion/100*56))，每层 frontier alpha-22
+        var itE = Math.min(56, Math.round((Number(p.erosion) || 0) / 100 * 56));
+        if (itE <= 0) return Promise.resolve(im);
+        return FF.Wasm.shaveAlpha(im, itE);
+      }
+      case "conditionalSuperEraser": {
+        // 读种子点色，RGB 距离 ≤ 容差才执行连通域抠图
+        var sx = Math.max(0, Math.min(im.width - 1, Number(p.seedX) | 0));
+        var sy = Math.max(0, Math.min(im.height - 1, Number(p.seedY) | 0));
+        var si = (sy * im.width + sx) * 4;
+        var seed = [im.data[si], im.data[si + 1], im.data[si + 2]];
+        var tol2 = Number(p.tolerance) || 30;
+        // 原站语义：种子色与白色 targetRGB(255,255,255) 距离 ≤ 容差才执行超级橡皮（种子连通域清除）
+        var dr2 = seed[0] - 255, dg2 = seed[1] - 255, db2 = seed[2] - 255;
+        var matches = Math.sqrt(dr2 * dr2 + dg2 * dg2 + db2 * db2) <= tol2;
+        if (!matches) return Promise.resolve(im);
+        // 实际容差以节点 tolerance 为准（原站 jz：targetRGB 仅做触发开关）
+        return FF.Wasm.floodErase(im, sx, sy, tol2);
+      }
+      case "gridDeleteRow":
+      case "gridDeleteCol":
+      case "gridExpandRow":
+      case "gridExpandCol":
+      case "gridFlipRow":
+      case "gridFlipCol":
+      case "gridCopyRow":
+      case "gridCopyCol":
+        return Promise.resolve(gridCellOp(node.type, im, p));
+      case "regionCopy": {
+        var x1 = clampPx(Number(p.srcX1) | 0, im.width), y1 = clampPx(Number(p.srcY1) | 0, im.height);
+        var x2 = clampPx(Number(p.srcX2) | 0, im.width), y2 = clampPx(Number(p.srcY2) | 0, im.height);
+        var rx1 = Math.min(x1, x2), ry1 = Math.min(y1, y2), rw = Math.abs(x2 - x1) + 1, rh = Math.abs(y2 - y1) + 1;
+        var ox = Number(p.offsetX) | 0, oy = Number(p.offsetY) | 0;
+        var out3 = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var d3 = out3.data;
+        if (p.clearTargetFirst) {
+          for (var yy3 = 0; yy3 < rh; yy3++) {
+            for (var xx3 = 0; xx3 < rw; xx3++) {
+              var tx = rx1 + ox + xx3, ty = ry1 + oy + yy3;
+              if (tx < 0 || ty < 0 || tx >= im.width || ty >= im.height) continue;
+              var ti = (ty * im.width + tx) * 4;
+              d3[ti] = d3[ti + 1] = d3[ti + 2] = d3[ti + 3] = 0;
+            }
+          }
+        }
+        for (var yy4 = 0; yy4 < rh; yy4++) {
+          for (var xx4 = 0; xx4 < rw; xx4++) {
+            var sxi = rx1 + xx4, syi = ry1 + yy4;
+            var txi = rx1 + ox + xx4, tyi = ry1 + oy + yy4;
+            if (txi < 0 || tyi < 0 || txi >= im.width || tyi >= im.height) continue;
+            var sIdx = (syi * im.width + sxi) * 4, tIdx = (tyi * im.width + txi) * 4;
+            d3[tIdx] = d3[sIdx]; d3[tIdx + 1] = d3[sIdx + 1]; d3[tIdx + 2] = d3[sIdx + 2]; d3[tIdx + 3] = d3[sIdx + 3];
+          }
+        }
+        return Promise.resolve(out3);
+      }
+      case "regionDelete": {
+        var x1d = clampPx(Number(p.srcX1) | 0, im.width), y1d = clampPx(Number(p.srcY1) | 0, im.height);
+        var x2d = clampPx(Number(p.srcX2) | 0, im.width), y2d = clampPx(Number(p.srcY2) | 0, im.height);
+        var out4 = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var d4 = out4.data;
+        for (var yy5 = Math.min(y1d, y2d); yy5 <= Math.max(y1d, y2d); yy5++) {
+          for (var xx5 = Math.min(x1d, x2d); xx5 <= Math.max(x1d, x2d); xx5++) {
+            var di5 = (yy5 * im.width + xx5) * 4;
+            d4[di5] = d4[di5 + 1] = d4[di5 + 2] = d4[di5 + 3] = 0;
+          }
+        }
+        return Promise.resolve(out4);
+      }
+      case "movePixels": {
+        var x1m = clampPx(Number(p.x1) | 0, im.width), y1m = clampPx(Number(p.y1) | 0, im.height);
+        var x2m = clampPx(Number(p.x2) | 0, im.width), y2m = clampPx(Number(p.y2) | 0, im.height);
+        var rx = Math.min(x1m, x2m), ry = Math.min(y1m, y2m);
+        var rw2 = Math.abs(x2m - x1m) + 1, rh2 = Math.abs(y2m - y1m) + 1;
+        var mx = Number(p.moveOffsetX) | 0, my = Number(p.moveOffsetY) | 0;
+        var out5 = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var src5 = new Uint8ClampedArray(im.data);
+        var d5 = out5.data;
+        // 先清源区，再贴到目标位置
+        for (var yy6 = ry; yy6 < ry + rh2; yy6++) {
+          for (var xx6 = rx; xx6 < rx + rw2; xx6++) {
+            var ci = (yy6 * im.width + xx6) * 4;
+            d5[ci] = d5[ci + 1] = d5[ci + 2] = d5[ci + 3] = 0;
+          }
+        }
+        for (var yy7 = 0; yy7 < rh2; yy7++) {
+          for (var xx7 = 0; xx7 < rw2; xx7++) {
+            var sI = ((ry + yy7) * im.width + (rx + xx7)) * 4;
+            var tx2 = rx + mx + xx7, ty2 = ry + my + yy7;
+            if (tx2 < 0 || ty2 < 0 || tx2 >= im.width || ty2 >= im.height) continue;
+            var tI = (ty2 * im.width + tx2) * 4;
+            d5[tI] = src5[sI]; d5[tI + 1] = src5[sI + 1]; d5[tI + 2] = src5[sI + 2]; d5[tI + 3] = src5[sI + 3];
+          }
+        }
+        return Promise.resolve(out5);
+      }
+      case "customGridRearrange": {
+        var sc = Math.max(1, Number(p.splitCols) | 0), sr = Math.max(1, Number(p.splitRows) | 0);
+        var oc = Math.max(1, Number(p.outCols) | 0), or_ = Math.max(1, Number(p.outRows) | 0);
+        // 原站 _z：边界式切分（每格 [floor(W*k/n), floor(W*(k+1)/n))，格间可差 1px）
+        function bnd(total, n, k) { return [Math.floor(total * k / n), Math.floor(total * (k + 1) / n)]; }
+        var colB = [], rowB = [];
+        for (var k1 = 0; k1 < sc; k1++) colB.push(bnd(im.width, sc, k1));
+        for (var k2 = 0; k2 < sr; k2++) rowB.push(bnd(im.height, sr, k2));
+        var cw2 = Math.ceil(im.width / sc), chh = Math.ceil(im.height / sr);
+        var map = String(p.map || "").split(",").map(function (v) { return parseInt(v, 10) || 0; });
+        var out6 = UI.makeCanvas(oc * cw2, or_ * chh);
+        var octx6 = out6.getContext("2d");
+        var src6 = UI.imageDataToCanvas(im);
+        for (var r6 = 0; r6 < or_; r6++) {
+          for (var c6 = 0; c6 < oc; c6++) {
+            var cellNo = map[r6 * oc + c6] || 0;
+            if (!cellNo) continue;
+            var flip = cellNo < 0;
+            var abs = Math.abs(cellNo) - 1;
+            var srcCol = abs % sc, srcRow = Math.floor(abs / sc);
+            if (srcRow >= sr) continue;
+            var sbx = colB[srcCol], sby = rowB[srcRow];
+            var sw6 = sbx[1] - sbx[0], sh6 = sby[1] - sby[0];
+            var dx6 = c6 * cw2 + Math.floor((cw2 - sw6) / 2);
+            var dy6 = r6 * chh + Math.floor((chh - sh6) / 2);
+            if (flip) {
+              octx6.save();
+              octx6.translate(dx6 + sw6, dy6);
+              octx6.scale(-1, 1);
+              octx6.drawImage(src6, sbx[0], sby[0], sw6, sh6, 0, 0, sw6, sh6);
+              octx6.restore();
+            } else {
+              octx6.drawImage(src6, sbx[0], sby[0], sw6, sh6, dx6, dy6, sw6, sh6);
+            }
+          }
+        }
+        return Promise.resolve(out6.getContext("2d").getImageData(0, 0, out6.width, out6.height));
+      }
+      case "perfectPixel": {
+        try {
+          var opts = {
+            sampleMethod: "center",
+            minSize: Number(p.minSize) || 4,
+            peakWidth: Number(p.peakWidth) || 6,
+            refineIntensity: (Number(p.refineX100) || 25) / 100,
+            fixSquare: !!Number(p.fixSquare),
+            gridSize: Number(p.manualGrid) ? { cols: Number(p.gridCols) || 32, rows: Number(p.gridRows) || 32 } : null
+          };
+          return Promise.resolve(FF.PerfectPixel.getPerfectPixel(im, opts));
+        } catch (e) {
+          return Promise.reject(e);
+        }
+      }
+      case "evenSplitStrip": {
+        // 原站 Ez：cols×rows 网格按行优先展开为单条横带
+        var ec = Math.max(1, Number(p.evenCols) | 0), er = Math.max(1, Number(p.evenRows) | 0);
+        var cwx = Math.floor(im.width / ec), chx = Math.floor(im.height / er);
+        var out7 = UI.makeCanvas(ec * er * cwx, chx);
+        var octx7 = out7.getContext("2d");
+        var src7 = UI.imageDataToCanvas(im);
+        var n7 = 0;
+        for (var ry7 = 0; ry7 < er; ry7++) {
+          for (var rx7 = 0; rx7 < ec; rx7++) {
+            octx7.drawImage(src7, rx7 * cwx, ry7 * chx, cwx, chx, n7 * cwx, 0, cwx, chx);
+            n7++;
+          }
+        }
+        return Promise.resolve(out7.getContext("2d").getImageData(0, 0, out7.width, out7.height));
+      }
+      case "evenSplitPerCellEdge": {
+        // 原站 Rz：每格先扩边(d1)/裁边(n1) 再拼横带
+        var ec2 = Math.max(1, Number(p.evenCols) | 0), er2 = Math.max(1, Number(p.evenRows) | 0);
+        var cwx2 = Math.floor(im.width / ec2), chx2 = Math.floor(im.height / er2);
+        var expand = (Number(p.cellEdgeMode) | 0) === 0;
+        var eL = Math.max(0, Number(p.edgeL) | 0), eT = Math.max(0, Number(p.edgeT) | 0);
+        var eR = Math.max(0, Number(p.edgeR) | 0), eB = Math.max(0, Number(p.edgeB) | 0);
+        var src8 = UI.imageDataToCanvas(im);
+        var cellW = expand ? cwx2 + eL + eR : Math.max(1, cwx2 - eL - eR);
+        var cellH = expand ? chx2 + eT + eB : Math.max(1, chx2 - eT - eB);
+        var out8 = UI.makeCanvas(ec2 * er2 * cellW, cellH);
+        var octx8 = out8.getContext("2d");
+        var n8 = 0;
+        for (var ry8 = 0; ry8 < er2; ry8++) {
+          for (var rx8 = 0; rx8 < ec2; rx8++) {
+            var cx8 = n8 * cellW;
+            var sx8 = rx8 * cwx2, sy8 = ry8 * chx2;
+            if (expand) {
+              octx8.drawImage(src8, sx8, sy8, cwx2, chx2, cx8 + eL, eT, cwx2, chx2);
+            } else {
+              octx8.drawImage(src8, sx8 + eL, sy8 + eT, cellW, cellH, cx8, 0, cellW, cellH);
+            }
+            n8++;
+          }
+        }
+        return Promise.resolve(out8.getContext("2d").getImageData(0, 0, out8.width, out8.height));
+      }
+      case "mergeStrip": {
+        // 原站 Iz：横向逐帧条带重排到 mergeCols 列网格
+        var mc = Math.max(1, Number(p.mergeCols) | 0);
+        var fcount = Number(p.frameCount) | 0;
+        var frames = fcount > 0 ? Math.min(fcount, im.width) : Math.floor(im.width / (Number(p.frameW) || 32));
+        if (frames < 1) frames = 1;
+        var fW = Math.floor(im.width / frames);
+        var fH = im.height;
+        var rows9 = Math.ceil(frames / mc);
+        var out9 = UI.makeCanvas(mc * fW, rows9 * fH);
+        var octx9 = out9.getContext("2d");
+        var src9 = UI.imageDataToCanvas(im);
+        for (var k9 = 0; k9 < frames; k9++) {
+          octx9.drawImage(src9, k9 * fW, 0, fW, fH, (k9 % mc) * fW, Math.floor(k9 / mc) * fH, fW, fH);
+        }
+        return Promise.resolve(out9.getContext("2d").getImageData(0, 0, out9.width, out9.height));
+      }
+      case "simpleStitchVertical": {
+        // 原站 oH 简版：单输入时按槽位数复制拼接（0=竖叠 1=横排 2=叠加）
+        var mode = Number(p.stitchMode) | 0;
+        var slots = Math.max(2, Math.min(16, Number(p.stitchSlotCount) | 0));
+        var src10 = UI.imageDataToCanvas(im);
+        var out10;
+        if (mode === 0) {
+          out10 = UI.makeCanvas(im.width, im.height * slots);
+          var c10 = out10.getContext("2d");
+          for (var s10 = 0; s10 < slots; s10++) c10.drawImage(src10, 0, s10 * im.height);
+        } else if (mode === 1) {
+          out10 = UI.makeCanvas(im.width * slots, im.height);
+          var c11 = out10.getContext("2d");
+          for (var s11 = 0; s11 < slots; s11++) c11.drawImage(src10, s11 * im.width, 0);
+        } else {
+          out10 = UI.makeCanvas(im.width, im.height);
+          var c12 = out10.getContext("2d");
+          for (var s12 = 0; s12 < slots; s12++) c12.drawImage(src10, 0, 0);
+        }
+        return Promise.resolve(out10.getContext("2d").getImageData(0, 0, out10.width, out10.height));
+      }
+      case "timeGate": {
+        var exp = Number(p.expiresAtMs) || 0;
+        if (exp && Date.now() > exp) return Promise.reject(new Error("WORKFLOW_TIME_EXPIRED"));
+        return Promise.resolve(im);
+      }
+      case "copyBranch":
+        // 引擎层沿多出边自然分支；本节点恒等透传（原站语义）
+        return Promise.resolve(im);
+      case "complexRegionCopy": {
+        var crx1 = clampPx(Number(p.srcX1) | 0, im.width), cry1 = clampPx(Number(p.srcY1) | 0, im.height);
+        var crx2 = clampPx(Number(p.srcX2) | 0, im.width), cry2 = clampPx(Number(p.srcY2) | 0, im.height);
+        var crrx = Math.min(crx1, crx2), crry = Math.min(cry1, cry2);
+        var crrw = Math.abs(crx2 - crx1) + 1, crrh = Math.abs(cry2 - cry1) + 1;
+        var crOut = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var crD = crOut.data;
+        var offs = String(p.offsets || "").split(";").map(function (v) {
+          var xy = v.split(",").map(function (n2) { return parseInt(n2, 10) | 0; });
+          return xy.length === 2 ? xy : null;
+        }).filter(Boolean).slice(0, 32);
+        offs.forEach(function (off) {
+          for (var yy = 0; yy < crrh; yy++) {
+            for (var xx = 0; xx < crrw; xx++) {
+              var sI = ((crry + yy) * im.width + (crrx + xx)) * 4;
+              var tx = crrx + off[0] + xx, ty = crry + off[1] + yy;
+              if (tx < 0 || ty < 0 || tx >= im.width || ty >= im.height) continue;
+              var tI = (ty * im.width + tx) * 4;
+              if (p.clearTargetFirst) { crD[tI] = crD[tI + 1] = crD[tI + 2] = crD[tI + 3] = 0; }
+              crD[tI] = im.data[sI]; crD[tI + 1] = im.data[sI + 1]; crD[tI + 2] = im.data[sI + 2]; crD[tI + 3] = im.data[sI + 3];
+            }
+          }
+        });
+        return Promise.resolve(crOut);
+      }
+      case "matteDoubleBackground": {
+        var wd = String(p.whiteData || "");
+        if (!wd || wd.indexOf("data:image") !== 0) {
+          return Promise.reject(new Error("请在节点参数 whiteData 填入白底图 dataURL（或先上传后再保存蓝图）"));
+        }
+        var wimg = new Image();
+        return new Promise(function (resolve, reject) {
+          wimg.onload = function () {
+            var cv = UI.makeCanvas(wimg.naturalWidth, wimg.naturalHeight);
+            cv.getContext("2d").drawImage(wimg, 0, 0);
+            var wIm = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height);
+            if (wIm.width !== im.width || wIm.height !== im.height) {
+              reject(new Error("白底图与原图尺寸不一致")); return;
+            }
+            FF.Wasm.doubleBg(im, wIm, Number(p.tolerance) || 70, Number(p.edgeContrast) || 53, 0)
+              .then(resolve, reject);
+          };
+          wimg.onerror = function () { reject(new Error("白底图读取失败")); };
+          wimg.src = wd;
+        });
+      }
+      case "apiImageGenerate": {
+        var lines = String(p.prompt || "").split("\n").map(function (v) { return v.trim(); }).filter(Boolean);
+        if (!lines.length) return Promise.reject(new Error("请填写提示词"));
+        if (!FF.Ai.getKey()) return Promise.reject(new Error("NO_KEY"));
+        var refUrl = null;
+        if (Number(p.useUpstream) && im && im.width) {
+          var refCv = UI.imageDataToCanvas(im);
+          refUrl = refCv.toDataURL("image/png");
+        }
+        var base64 = refUrl ? refUrl.split(",")[1] : null;
+        // 多行 = 多次生成，取第一行结果（本地单图管线语义；原图被替换为生成图）
+        return FF.Ai.generate(lines[0], base64 ? { mime: "image/png", base64: base64 } : null).then(function (r) {
+          var gimg = new Image();
+          return new Promise(function (resolve, reject) {
+            gimg.onload = function () {
+              var cv2 = UI.makeCanvas(Math.min(4096, gimg.naturalWidth), Math.min(4096, gimg.naturalHeight));
+              cv2.getContext("2d").drawImage(gimg, 0, 0, cv2.width, cv2.height);
+              resolve(cv2.getContext("2d").getImageData(0, 0, cv2.width, cv2.height));
+            };
+            gimg.onerror = function () { reject(new Error("生成图读取失败")); };
+            gimg.src = r.dataUrl;
+          });
+        });
       }
       default:
         return Promise.resolve(im);
@@ -379,6 +1040,10 @@
         wrap.appendChild(rIn);
         wrap.appendChild(val);
         row.appendChild(wrap);
+      } else if (p.type === "text") {
+        var tIn = UI.el("input", { type: "text", value: v, style: { width: "100%" } });
+        tIn.addEventListener("change", function () { n.params[p.k] = tIn.value; });
+        row.appendChild(tIn);
       } else {
         var nIn = UI.el("input", { type: "number", value: v });
         nIn.addEventListener("change", function () { n.params[p.k] = Number(nIn.value); });
@@ -390,6 +1055,7 @@
     /* ---------- 执行 ---------- */
 
     var running = false;
+    /* DAG 执行：拓扑排序执行全部可达节点；多出边=分支（copyBranch 语义），多入边取第一条 */
     function run() {
       if (running) return;
       var inputNode = state.nodes.find(function (n) { return n.type === "input"; });
@@ -398,41 +1064,74 @@
         return;
       }
       running = true;
-      var outNode = state.nodes.find(function (n) { return n.type === "output"; });
-      // 邻接表
-      var nextOf = {};
-      state.edges.forEach(function (e) { if (!nextOf[e.from]) nextOf[e.from] = e.to; });
-      var cur = inputNode, curIm = Promise.resolve(inputNode.imageData);
-      var steps = 0;
-      function step() {
-        var nextId = nextOf[cur.id];
-        if (nextId === undefined || steps > 64) { finish(); return; }
-        var next = nodeById(nextId);
-        if (!next) { finish(); return; }
-        if (next.type === "output") {
-          curIm.then(function (im) {
-            next.imageData = im;
-            render();
-            FF.Toast.show(t("flow.done"), "ok");
-            finish();
-          }, function (e) { fail(e); });
-          return;
-        }
-        curIm = curIm.then(function (im) { return execNode(next, im); });
-        curIm.then(function (im) {
-          next.imageData = im;
-          cur = next;
-          steps++;
-          step();
-        }, fail);
+      // 可达集
+      var reach = {};
+      var stack = [inputNode.id];
+      reach[inputNode.id] = true;
+      var outMap = {};
+      state.edges.forEach(function (e) { (outMap[e.from] = outMap[e.from] || []).push(e.to); });
+      while (stack.length) {
+        var id = stack.pop();
+        (outMap[id] || []).forEach(function (to) {
+          if (!reach[to]) { reach[to] = true; stack.push(to); }
+        });
       }
-      function finish() { running = false; render(); }
-      function fail(e) {
+      // 入度（仅可达子图）
+      var indeg = {};
+      Object.keys(reach).forEach(function (id) { indeg[id] = 0; });
+      state.edges.forEach(function (e) {
+        if (reach[e.from] && reach[e.to]) indeg[e.to]++;
+      });
+      var inMap = {};
+      state.edges.forEach(function (e) { if (reach[e.from] && reach[e.to]) (inMap[e.to] = inMap[e.to] || []).push(e.from); });
+      // Kahn 拓扑
+      var order = [];
+      var q = Object.keys(indeg).filter(function (id) { return indeg[id] === 0; });
+      var guard = 0;
+      while (q.length && guard++ < 512) {
+        var id2 = q.shift();
+        order.push(id2);
+        (outMap[id2] || []).forEach(function (to) {
+          if (--indeg[to] === 0) q.push(to);
+        });
+      }
+      if (order.length < Object.keys(reach).length) {
+        running = false;
+        FF.Toast.show(t("flow.cycle") || "存在环/断连", "err");
+        return;
+      }
+      var resultIm = Promise.resolve(inputNode.imageData);
+      var seq = Promise.resolve();
+      var outSeen = 0;
+      order.forEach(function (id3) {
+        var node = nodeById(id3);
+        if (!node) return;
+        if (node.type === "input") { node.imageData = inputNode.imageData; return; }
+        seq = seq.then(function () {
+          var srcId = (inMap[id3] || [])[0];
+          var src = srcId ? nodeById(srcId) : null;
+          var upstream = (src && src.imageData) ? src.imageData : inputNode.imageData;
+          if (node.type === "output") {
+            node.imageData = upstream;
+            outSeen++;
+            resultIm = Promise.resolve(upstream);
+            return null;
+          }
+          return execNode(node, upstream).then(function (im) {
+            node.imageData = im;
+            return null;
+          });
+        });
+      });
+      seq.then(function () {
+        render();
+        FF.Toast.show(t("flow.done") + (outSeen > 1 ? " · " + outSeen + " outputs" : ""), "ok");
+        running = false;
+      }).catch(function (e) {
         running = false;
         FF.Toast.show("Error: " + (e.message || e), "err");
-        finish();
-      }
-      step();
+        render();
+      });
     }
 
     /* ---------- 蓝图保存 / 加载 / 预设 ---------- */

@@ -30,7 +30,7 @@
     var tabBar = UI.el("div", { class: "row mb14", style: { gap: "6px", flexWrap: "wrap" } }, []);
     var NAMES = ["pro.tab.scale", "pro.tab.unify", "pro.tab.slice", "pro.tab.adjust",
       "pp.tab.crop", "pp.tab.expshrink", "pp.tab.isoskew", "pp.tab.scatter", "pp.tab.largesplit",
-      "pp.tab.dupframes", "pp.tab.seqcompress", "pp.tab.audio", "pp.tab.flow"];
+      "pp.tab.dupframes", "pp.tab.seqcompress", "pp.tab.audio", "pp.tab.flow", "pp.tab.pixelcore"];
     var panes = NAMES.map(function () { return UI.el("div", { style: { display: "none" } }, []); });
     var paneWrap = UI.el("div", {}, []);
     var btns = NAMES.map(function (k, i) {
@@ -56,6 +56,7 @@
       FF.ProPlus.seqCompress(panes[10]);
       FF.ProPlus.audioCompress(panes[11]);
       FF.ProPlus.flowInterp(panes[12]);
+      FF.ProPlus.pixelCore(panes[13]);
     }
 
     function resultBox(pane, title) {
@@ -121,58 +122,78 @@
           });
         }
       });
+      // 原站支持从暂存拖入
+      dz.addEventListener("dragover", function (e) { e.preventDefault(); });
+      dz.addEventListener("drop", function (e) {
+        var sd = "";
+        try { sd = e.dataTransfer.getData("application/x-frameronin-stash-url") || e.dataTransfer.getData("text/ff-stash") || ""; } catch (err) {}
+        if (!sd) return;
+        e.preventDefault();
+        sd.split("\n").forEach(function (u) {
+          u = u.trim();
+          if (!/^data:image\//.test(u)) return;
+          var img = new Image();
+          img.onload = function () {
+            var c = UI.makeCanvas(img.naturalWidth, img.naturalHeight);
+            c.getContext("2d").drawImage(img, 0, 0);
+            imgs.push(c);
+            info.textContent = imgs.length + " " + t("video.frames");
+          };
+          img.src = u;
+        });
+      });
       var info = UI.el("div", { class: "hint-text mt8" }, []);
-      var mode = UI.selectRow(t("pro.unify.mode"), [
-        { v: "max", label: t("pro.unify.max") },
-        { v: "custom", label: t("pro.unify.custom") }
-      ], "max", { onChange: function () { customW.style.display = mode.value === "custom" ? "" : "none"; } });
-      var cw = UI.el("input", { type: "number", value: "256", min: "4", style: { width: "80px" } });
-      var ch = UI.el("input", { type: "number", value: "256", min: "4", style: { width: "80px" } });
-      var customW = UI.el("div", { class: "row", style: { display: "none" } }, [cw, UI.el("span", { class: "hint-text" }, ["×"]), ch]);
-      var bg = UI.el("input", { type: "color", value: "#000000" });
-      var fillSw = UI.switchRow(t("pro.unify.fill"), false, function () {});
+      // 原站「统一大小」：以最大宽高为格，网格拼成一张图；对齐决定格内位置（不缩放）
+      var colsIn = UI.el("input", { type: "number", value: "4", min: "1", max: "64", style: { width: "80px" } });
+      var padHSel = UI.selectRow(t("pro.unify.padH"), [
+        { v: "left", label: t("pro.unify.left") }, { v: "center", label: t("pro.unify.center") }, { v: "right", label: t("pro.unify.right") }
+      ], "center", {});
+      var padVSel = UI.selectRow(t("pro.unify.padV"), [
+        { v: "top", label: t("pro.unify.top") }, { v: "center", label: t("pro.unify.center") }, { v: "bottom", label: t("pro.unify.bottom") }
+      ], "bottom", {});
+      var sizeHint = UI.el("div", { class: "hint-text mt8" }, []);
       var go = UI.btn(t("pro.unify.go"), "btn-primary", function () {
         if (!imgs.length) return;
-        var W = mode.value === "max"
-          ? Math.max.apply(null, imgs.map(function (c) { return c.width; }))
-          : Number(cw.value) || 256;
-        var H = mode.value === "max"
-          ? Math.max.apply(null, imgs.map(function (c) { return c.height; }))
-          : Number(ch.value) || 256;
-        var rgb = hex2rgb(bg.value);
-        var out = imgs.map(function (c) {
-          var o = UI.makeCanvas(W, H);
-          var ctx = o.getContext("2d");
-          if (fillSw.value) { ctx.fillStyle = bg.value; ctx.fillRect(0, 0, W, H); }
-          ctx.imageSmoothingEnabled = false;
-          var s = Math.min(W / c.width, H / c.height);
-          var dw = Math.round(c.width * s), dh = Math.round(c.height * s);
-          ctx.drawImage(c, Math.floor((W - dw) / 2), Math.floor((H - dh) / 2), dw, dh);
-          return o;
+        var B = Math.max(1, Math.min(64, Number(colsIn.value) || 4));
+        var maxW = Math.max.apply(null, imgs.map(function (c) { return c.width; }));
+        var maxH = Math.max.apply(null, imgs.map(function (c) { return c.height; }));
+        var rows = Math.ceil(imgs.length / B);
+        var out = UI.makeCanvas(B * maxW, rows * maxH);
+        var ctx = out.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        var ha = padHSel.value === "left" ? "start" : padHSel.value === "right" ? "end" : "center";
+        var va = padVSel.value === "top" ? "start" : padVSel.value === "bottom" ? "end" : "center";
+        function off(total, size, align) {
+          if (align === "start") return 0;
+          if (align === "end") return total - size;
+          return Math.floor((total - size) / 2);
+        }
+        imgs.forEach(function (c, i) {
+          var row = Math.floor(i / B);
+          var x = (i % B) * maxW + off(maxW, c.width, ha);
+          var y = row * maxH + off(maxH, c.height, va);
+          ctx.drawImage(c, 0, 0, c.width, c.height, x, y, c.width, c.height);
         });
-        // 逐张 toBlob 打包 ZIP
-        (async function () {
-          var files = [];
-          for (var i = 0; i < out.length; i++) {
-            var blob = await new Promise(function (r3) { out[i].toBlob(r3, "image/png"); });
-            files.push({ name: "unify_" + String(i + 1).padStart(3, "0") + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
-          }
-          UI.download(FF.Zip.make(files), "unified_" + W + "x" + H + ".zip");
-        })();
-        showResult(out[0]);
+        sizeHint.textContent = t("pro.unify.hint")
+          .replace("{w}", maxW).replace("{h}", maxH)
+          .replace("{ow}", B * maxW).replace("{oh}", rows * maxH);
+        out.toBlob(function (blob) {
+          UI.download(blob, "unify_" + imgs.length + "_images.png");
+        }, "image/png");
+        showResult(out);
       });
       var showResult = resultBox(pane, t("pro.tab.unify"));
       pane.appendChild(dz);
       pane.appendChild(info);
-      pane.appendChild(UI.el("div", { class: "param-grid" }, [mode.el,
-        UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("pro.unify.size")]), customW]),
-        UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("video.bg")]), bg]),
-        UI.el("div", { class: "param-row" }, [fillSw.el])
+      pane.appendChild(UI.el("div", { class: "param-grid" }, [
+        UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("pro.unify.cols")]), colsIn]),
+        padHSel.el, padVSel.el
       ]));
+      pane.appendChild(sizeHint);
       pane.appendChild(UI.el("div", { class: "mt14" }, [go]));
     })();
 
-    /* ========== 自定义切片 ========== */
+    /* ========== 自定义切片（对齐原站：网格 / 智能检测 / L7 接缝） ========== */
 
     (function () {
       var pane = panes[2];
@@ -188,30 +209,138 @@
         }
       });
       var info = UI.el("div", { class: "hint-text mt8" }, []);
+      var modeSel = UI.selectRow(t("pro.slice.mode"), [
+        { v: "grid", label: t("pro.slice.mode.grid") },
+        { v: "smart", label: t("pro.slice.mode.smart") },
+        { v: "l7", label: t("pro.slice.mode.l7") }
+      ], "grid", { onChange: function () {
+        gridRow.style.display = modeSel.value === "grid" ? "" : "none";
+        l7Row.style.display = modeSel.value === "l7" ? "" : "none";
+      } });
       var cwIn = UI.el("input", { type: "number", value: "64", min: "1", style: { width: "80px" } });
       var chIn = UI.el("input", { type: "number", value: "64", min: "1", style: { width: "80px" } });
-      var go = UI.btn(t("pro.slice.go"), "btn-primary", async function () {
-        if (!im) return;
-        var cw = Number(cwIn.value) || 64, ch = Number(chIn.value) || 64;
-        var cols = Math.floor(im.width / cw), rows = Math.floor(im.height / ch);
-        if (!cols || !rows) { UI.modal("Error", UI.el("p", {}, [t("pro.slice.err")])); return; }
-        var files = [];
-        for (var ry = 0; ry < rows; ry++) {
-          for (var rx = 0; rx < cols; rx++) {
-            var c = UI.makeCanvas(cw, ch);
-            c.getContext("2d").drawImage(UI.imageDataToCanvas(im), rx * cw, ry * ch, cw, ch, 0, 0, cw, ch);
-            var blob = await new Promise(function (r3) { c.toBlob(r3, "image/png"); });
-            files.push({ name: "slice_" + String(ry + 1).padStart(2, "0") + "_" + String(rx + 1).padStart(2, "0") + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+      var gridRow = UI.el("div", { class: "param-row" }, [
+        UI.el("label", {}, [t("pro.slice.size")]),
+        UI.el("div", { class: "row" }, [cwIn, UI.el("span", { class: "hint-text" }, ["×"]), chIn])
+      ]);
+      var colsIn = UI.el("input", { type: "number", value: "4", min: "1", max: "128", style: { width: "80px" } });
+      var rowsIn = UI.el("input", { type: "number", value: "4", min: "1", max: "128", style: { width: "80px" } });
+      var bandIn = UI.el("input", { type: "number", value: "25", min: "0", max: "100", style: { width: "80px" } });
+      var l7Row = UI.el("div", { class: "param-row", style: { display: "none" } }, [
+        UI.el("label", {}, [t("pro.slice.l7")]),
+        UI.el("div", { class: "row" }, [colsIn, UI.el("span", { class: "hint-text" }, ["×"]), rowsIn,
+          UI.el("span", { class: "hint-text" }, [t("pro.slice.band")]), bandIn])
+      ]);
+      // 智能检测 zo：行/列 alpha 和 → 内容带计数
+      function detectBands(im, vertical) {
+        var alphaSums = [];
+        var outer = vertical ? im.width : im.height;
+        var inner = vertical ? im.height : im.width;
+        for (var o = 0; o < outer; o++) {
+          var sum = 0;
+          for (var i = 0; i < inner; i++) {
+            var idx = vertical ? ((i * im.width + o) * 4 + 3) : ((o * im.width + i) * 4 + 3);
+            sum += im.data[idx];
+          }
+          alphaSums.push(sum);
+        }
+        var bands = [], s = -1;
+        for (var p = 0; p < outer; p++) {
+          var has = alphaSums[p] > 0;
+          if (has && s < 0) s = p;
+          if ((!has || p === outer - 1) && s >= 0) {
+            var e = has ? p + 1 : p;
+            if (e > s) bands.push([s, e]);
+            s = -1;
           }
         }
-        UI.download(FF.Zip.make(files), "slices_" + cols + "x" + rows + ".zip");
+        return bands;
+      }
+      // L7 接缝：名义等分 ±band 带内搜索 alpha 总和最小的切线
+      function l7Lines(im, n, vertical, bandPct) {
+        var len = vertical ? im.width : im.height;
+        var gap = len / n;
+        var band = Math.min(64, Math.max(1, Math.floor(gap * bandPct / 100)));
+        var inner = vertical ? im.height : im.width;
+        var step = Math.max(1, Math.floor(inner / 200));
+        function alphaSumAt(pos) {
+          var sum = 0;
+          if (pos <= 0 || pos >= len) return Infinity;
+          for (var i = 0; i < inner; i += step) {
+            var idx = vertical ? ((i * im.width + pos) * 4 + 3) : ((pos * im.width + i) * 4 + 3);
+            sum += im.data[idx];
+          }
+          return sum;
+        }
+        var lines = [0];
+        for (var k = 1; k < n; k++) {
+          var nominal = Math.floor(k * len / n);
+          var lo = Math.max(1, nominal - band), hi = Math.min(len - 1, nominal + band);
+          var bestPos = nominal, bestVal = Infinity;
+          for (var p2 = lo; p2 <= hi; p2++) {
+            var v = alphaSumAt(p2);
+            if (v < bestVal || (v === bestVal && Math.abs(p2 - nominal) < Math.abs(bestPos - nominal))) {
+              bestVal = v; bestPos = p2;
+            }
+          }
+          lines.push(bestPos);
+        }
+        lines.push(len);
+        return lines;
+      }
+      function cutAndZip(boundsX, boundsY, namePrefix) {
+        var files = [];
+        var n = 0;
+        for (var ry = 0; ry < boundsY.length - 1; ry++) {
+          for (var rx = 0; rx < boundsX.length - 1; rx++) {
+            var x = boundsX[rx], y = boundsY[ry];
+            var w = boundsX[rx + 1] - x, h = boundsY[ry + 1] - y;
+            if (w <= 0 || h <= 0) continue;
+            var c = UI.makeCanvas(w, h);
+            c.getContext("2d").drawImage(UI.imageDataToCanvas(im), x, y, w, h, 0, 0, w, h);
+            files.push({ canvas: c, name: namePrefix + String(++n).padStart(3, "0") + ".png" });
+          }
+        }
+        if (!files.length) { UI.modal("Error", UI.el("p", {}, [t("pro.slice.err")])); return; }
+        Promise.all(files.map(function (f) {
+          return new Promise(function (res) {
+            f.canvas.toBlob(function (blob) { res({ name: f.name, data: blob }); }, "image/png");
+          });
+        })).then(async function (outs) {
+          var zipped = [];
+          for (var i = 0; i < outs.length; i++) {
+            zipped.push({ name: outs[i].name, data: new Uint8Array(await outs[i].data.arrayBuffer()) });
+          }
+          UI.download(FF.Zip.make(zipped), "slices_" + (boundsX.length - 1) + "x" + (boundsY.length - 1) + ".zip");
+        });
+      }
+      var go = UI.btn(t("pro.slice.go"), "btn-primary", function () {
+        if (!im) return;
+        if (modeSel.value === "grid") {
+          var cw = Number(cwIn.value) || 64, ch = Number(chIn.value) || 64;
+          var cols = Math.floor(im.width / cw), rows = Math.floor(im.height / ch);
+          if (!cols || !rows) { UI.modal("Error", UI.el("p", {}, [t("pro.slice.err")])); return; }
+          var bx = [], by = [];
+          for (var x = 0; x <= cols; x++) bx.push(x * cw);
+          for (var y = 0; y <= rows; y++) by.push(y * ch);
+          cutAndZip(bx, by, "slice_");
+        } else if (modeSel.value === "smart") {
+          var cb = detectBands(im, true), rb = detectBands(im, false);
+          if (cb.length < 1 || rb.length < 1) { UI.modal("Error", UI.el("p", {}, [t("pro.slice.err")])); return; }
+          var bx2 = [0]; cb.forEach(function (b) { bx2.push(b[0], b[1]); });
+          var by2 = [0]; rb.forEach(function (b) { by2.push(b[0], b[1]); });
+          bx2.push(im.width); by2.push(im.height);
+          cutAndZip(bx2, by2, "smart_");
+        } else {
+          var n = Math.max(1, +colsIn.value | 0), m = Math.max(1, +rowsIn.value | 0);
+          var lx = l7Lines(im, n, true, +bandIn.value || 25);
+          var ly = l7Lines(im, m, false, +bandIn.value || 25);
+          cutAndZip(lx, ly, "frame_");
+        }
       });
       pane.appendChild(dz);
       pane.appendChild(info);
-      pane.appendChild(UI.el("div", { class: "param-row mt14" }, [
-        UI.el("label", {}, [t("pro.slice.size")]),
-        UI.el("div", { class: "row" }, [cwIn, UI.el("span", { class: "hint-text" }, ["×"]), chIn])
-      ]));
+      pane.appendChild(UI.el("div", { class: "param-grid mt14" }, [modeSel.el, gridRow, l7Row]));
       pane.appendChild(UI.el("div", { class: "mt14" }, [go]));
     })();
 
