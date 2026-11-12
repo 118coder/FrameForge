@@ -154,8 +154,6 @@
   FF.Tools.hd2d = pluginPage("mod.hd2d.t", "mod.hd2d.d", "https://frameronin.com/hd2d-model-optimizer-new/index.html");
   FF.Tools.onlineps = pluginPage("mod.ps2.t", "mod.ps2.d", "https://www.photopea.com/", t("pl.ps.note"));
   /* 首页「关注入口」补齐（对齐原站 A 按钮 4 外链） */
-  FF.Tools.wuxia = pluginPage("mod.wuxia.t", "mod.wuxia.d", "https://frameronin.com/wuxia-dream/index.html");
-  FF.Tools.training = pluginPage("mod.training.t", "mod.training.d", "https://frameronin.com/training");
 
   /* ================= /tut 使用手册（对齐原站 57 项说明库，7 类筛选 + 本地路由映射） ================= */
   FF.Tools.tut = function () {
@@ -223,8 +221,8 @@
         { n: "素材与源码分享", r: "#/assets", e: "资源区", s: "开源仓库/Godot/indieloop" },
         { n: "技能（智能体）", r: "#/skills", e: "顶栏", s: "Codex / DeepSeek 技能包说明" },
         { n: "使用说明", r: "#/guide", e: "顶栏", s: "8 步上手引导" },
-        { n: "在线 PS", r: "#/onlineps", e: "资源区", s: "Photopea（图层/蒙版/PSD）" },
-        { n: "1对1培训", r: "#/training", e: "资源区", s: "原站培训页" }
+        { n: "在线 PS", r: "#/onlineps", e: "资源区", s: "Photopea（图层/蒙版/PSD）" }
+
       ]}
     ];
 

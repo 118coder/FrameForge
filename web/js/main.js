@@ -20,6 +20,8 @@
     { id: "effects", route: "#/effects", icon: "pixel", key: "", size: "lg", enabled: true, badges: ["badge.free"], cat: "ai" },
     { id: "uiicons", route: "#/uiicons", icon: "ps",   key: "", size: "lg", enabled: true, cat: "ai" },
     { id: "potpourri", route: "#/potpourri", icon: "ai", key: "", size: "sm", enabled: true, cat: "ai" },
+    { id: "videogen",  route: "#/videogen",  icon: "video", key: "", size: "lg", enabled: true, cat: "ai" },
+    { id: "scenechar", route: "#/scenechar", icon: "ai",    key: "", size: "lg", enabled: true, cat: "ai" },
     { id: "lab",     route: "#/lab",     icon: "hd2d",  key: "", size: "lg", enabled: true, badges: ["badge.new"], cat: "ai" },
     /* -- 图像处理区 -- */
     { id: "video",  route: "#/video",  icon: "video",   key: "V", size: "lg", enabled: true, cat: "tools" },
@@ -49,8 +51,6 @@
     { id: "hd2d",      route: "#/hd2d",      icon: "hd2d",   key: "", size: "sm", enabled: true, cat: "res" },
     { id: "ps2",       route: "#/onlineps",  icon: "ps",     key: "", size: "sm", enabled: true, cat: "res" },
     { id: "tut",       route: "#/tut",       icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
-    { id: "wuxia",     route: "#/wuxia",     icon: "grid",   key: "", size: "sm", enabled: true, cat: "res" },
-    { id: "training",  route: "#/training",  icon: "ai",     key: "", size: "sm", enabled: true, cat: "res" }
   ];
 
   var CATS = ["ai", "tools", "pro", "res"];
@@ -702,8 +702,7 @@
     "#/scenechar": function (q) { return FF.Tools.scenechar(q); },
     "#/gifcomposer": function (q) { return FF.Tools.gifcomposer(q); },
     "#/gwm": function (q) { return FF.Tools.geminiwm(q); },
-    "#/wuxia": function (q) { return FF.Tools.wuxia(q); },
-    "#/training": function (q) { return FF.Tools.training(q); }
+
   };
 
   var currentCleanup = null;
