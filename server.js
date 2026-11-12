@@ -49,6 +49,7 @@ const server = http.createServer((req, res) => {
     }
     const ext = path.extname(filePath).toLowerCase();
     res.writeHead(200, {
+      "Cache-Control": "no-cache",
       "Content-Type": MIME[ext] || "application/octet-stream",
       "Cache-Control": "no-cache",
       "Cross-Origin-Opener-Policy": "same-origin",

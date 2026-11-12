@@ -286,6 +286,40 @@
         { k: "stitchSlotCount", label: "槽位数", type: "number", def: 2 }
       ]
     },
+    apiImageGenerate: {
+      title: "AI 生图（走全局 API 设置）", color: "#b05a8a",
+      params: [
+        { k: "prompt", label: "提示词（一行一次，多行=多次）", type: "text", def: "" },
+        { k: "useUpstream", label: "图生图(用上游图)", type: "number", def: 1 }
+      ]
+    },
+    timeGate: {
+      title: "时间闸（过期阻断）", color: "#7a4a8a",
+      params: [{ k: "expiresAtMs", label: "过期时间戳 ms", type: "number", def: 0 }]
+    },
+    copyBranch: {
+      title: "分支复制（配合多出边）", color: "#7a4a8a",
+      params: [{ k: "copyOutCount", label: "分支数（引擎自动沿多出边）", type: "number", def: 2 }]
+    },
+    complexRegionCopy: {
+      title: "区域多重复制", color: "#7a4a8a",
+      params: [
+        { k: "srcX1", label: "X1", type: "number", def: 0 },
+        { k: "srcY1", label: "Y1", type: "number", def: 0 },
+        { k: "srcX2", label: "X2", type: "number", def: 31 },
+        { k: "srcY2", label: "Y2", type: "number", def: 31 },
+        { k: "offsets", label: "偏移列表 x,y;x,y;…", type: "text", def: "32,0" },
+        { k: "clearTargetFirst", label: "先清目标区", type: "number", def: 0 }
+      ]
+    },
+    matteDoubleBackground: {
+      title: "双背景去背（需白底图）", color: "#b64a2e",
+      params: [
+        { k: "tolerance", label: "容差", type: "range", min: 0, max: 100, def: 70 },
+        { k: "edgeContrast", label: "边缘对比", type: "range", min: 0, max: 100, def: 53 },
+        { k: "whiteData", label: "白底图 dataURL", type: "text", def: "" }
+      ]
+    },
     output: {
       title: "输出结果", color: "#4a7c59",
       params: []
@@ -717,6 +751,84 @@
         }
         return Promise.resolve(out10.getContext("2d").getImageData(0, 0, out10.width, out10.height));
       }
+      case "timeGate": {
+        var exp = Number(p.expiresAtMs) || 0;
+        if (exp && Date.now() > exp) return Promise.reject(new Error("WORKFLOW_TIME_EXPIRED"));
+        return Promise.resolve(im);
+      }
+      case "copyBranch":
+        // 引擎层沿多出边自然分支；本节点恒等透传（原站语义）
+        return Promise.resolve(im);
+      case "complexRegionCopy": {
+        var crx1 = clampPx(Number(p.srcX1) | 0, im.width), cry1 = clampPx(Number(p.srcY1) | 0, im.height);
+        var crx2 = clampPx(Number(p.srcX2) | 0, im.width), cry2 = clampPx(Number(p.srcY2) | 0, im.height);
+        var crrx = Math.min(crx1, crx2), crry = Math.min(cry1, cry2);
+        var crrw = Math.abs(crx2 - crx1) + 1, crrh = Math.abs(cry2 - cry1) + 1;
+        var crOut = new ImageData(new Uint8ClampedArray(im.data), im.width, im.height);
+        var crD = crOut.data;
+        var offs = String(p.offsets || "").split(";").map(function (v) {
+          var xy = v.split(",").map(function (n2) { return parseInt(n2, 10) | 0; });
+          return xy.length === 2 ? xy : null;
+        }).filter(Boolean).slice(0, 32);
+        offs.forEach(function (off) {
+          for (var yy = 0; yy < crrh; yy++) {
+            for (var xx = 0; xx < crrw; xx++) {
+              var sI = ((crry + yy) * im.width + (crrx + xx)) * 4;
+              var tx = crrx + off[0] + xx, ty = crry + off[1] + yy;
+              if (tx < 0 || ty < 0 || tx >= im.width || ty >= im.height) continue;
+              var tI = (ty * im.width + tx) * 4;
+              if (p.clearTargetFirst) { crD[tI] = crD[tI + 1] = crD[tI + 2] = crD[tI + 3] = 0; }
+              crD[tI] = im.data[sI]; crD[tI + 1] = im.data[sI + 1]; crD[tI + 2] = im.data[sI + 2]; crD[tI + 3] = im.data[sI + 3];
+            }
+          }
+        });
+        return Promise.resolve(crOut);
+      }
+      case "matteDoubleBackground": {
+        var wd = String(p.whiteData || "");
+        if (!wd || wd.indexOf("data:image") !== 0) {
+          return Promise.reject(new Error("请在节点参数 whiteData 填入白底图 dataURL（或先上传后再保存蓝图）"));
+        }
+        var wimg = new Image();
+        return new Promise(function (resolve, reject) {
+          wimg.onload = function () {
+            var cv = UI.makeCanvas(wimg.naturalWidth, wimg.naturalHeight);
+            cv.getContext("2d").drawImage(wimg, 0, 0);
+            var wIm = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height);
+            if (wIm.width !== im.width || wIm.height !== im.height) {
+              reject(new Error("白底图与原图尺寸不一致")); return;
+            }
+            FF.Wasm.doubleBg(im, wIm, Number(p.tolerance) || 70, Number(p.edgeContrast) || 53, 0)
+              .then(resolve, reject);
+          };
+          wimg.onerror = function () { reject(new Error("白底图读取失败")); };
+          wimg.src = wd;
+        });
+      }
+      case "apiImageGenerate": {
+        var lines = String(p.prompt || "").split("\n").map(function (v) { return v.trim(); }).filter(Boolean);
+        if (!lines.length) return Promise.reject(new Error("请填写提示词"));
+        if (!FF.Ai.getKey()) return Promise.reject(new Error("NO_KEY"));
+        var refUrl = null;
+        if (Number(p.useUpstream) && im && im.width) {
+          var refCv = UI.imageDataToCanvas(im);
+          refUrl = refCv.toDataURL("image/png");
+        }
+        var base64 = refUrl ? refUrl.split(",")[1] : null;
+        // 多行 = 多次生成，取第一行结果（本地单图管线语义；原图被替换为生成图）
+        return FF.Ai.generate(lines[0], base64 ? { mime: "image/png", base64: base64 } : null).then(function (r) {
+          var gimg = new Image();
+          return new Promise(function (resolve, reject) {
+            gimg.onload = function () {
+              var cv2 = UI.makeCanvas(Math.min(4096, gimg.naturalWidth), Math.min(4096, gimg.naturalHeight));
+              cv2.getContext("2d").drawImage(gimg, 0, 0, cv2.width, cv2.height);
+              resolve(cv2.getContext("2d").getImageData(0, 0, cv2.width, cv2.height));
+            };
+            gimg.onerror = function () { reject(new Error("生成图读取失败")); };
+            gimg.src = r.dataUrl;
+          });
+        });
+      }
       default:
         return Promise.resolve(im);
     }
@@ -943,6 +1055,7 @@
     /* ---------- 执行 ---------- */
 
     var running = false;
+    /* DAG 执行：拓扑排序执行全部可达节点；多出边=分支（copyBranch 语义），多入边取第一条 */
     function run() {
       if (running) return;
       var inputNode = state.nodes.find(function (n) { return n.type === "input"; });
@@ -951,41 +1064,74 @@
         return;
       }
       running = true;
-      var outNode = state.nodes.find(function (n) { return n.type === "output"; });
-      // 邻接表
-      var nextOf = {};
-      state.edges.forEach(function (e) { if (!nextOf[e.from]) nextOf[e.from] = e.to; });
-      var cur = inputNode, curIm = Promise.resolve(inputNode.imageData);
-      var steps = 0;
-      function step() {
-        var nextId = nextOf[cur.id];
-        if (nextId === undefined || steps > 64) { finish(); return; }
-        var next = nodeById(nextId);
-        if (!next) { finish(); return; }
-        if (next.type === "output") {
-          curIm.then(function (im) {
-            next.imageData = im;
-            render();
-            FF.Toast.show(t("flow.done"), "ok");
-            finish();
-          }, function (e) { fail(e); });
-          return;
-        }
-        curIm = curIm.then(function (im) { return execNode(next, im); });
-        curIm.then(function (im) {
-          next.imageData = im;
-          cur = next;
-          steps++;
-          step();
-        }, fail);
+      // 可达集
+      var reach = {};
+      var stack = [inputNode.id];
+      reach[inputNode.id] = true;
+      var outMap = {};
+      state.edges.forEach(function (e) { (outMap[e.from] = outMap[e.from] || []).push(e.to); });
+      while (stack.length) {
+        var id = stack.pop();
+        (outMap[id] || []).forEach(function (to) {
+          if (!reach[to]) { reach[to] = true; stack.push(to); }
+        });
       }
-      function finish() { running = false; render(); }
-      function fail(e) {
+      // 入度（仅可达子图）
+      var indeg = {};
+      Object.keys(reach).forEach(function (id) { indeg[id] = 0; });
+      state.edges.forEach(function (e) {
+        if (reach[e.from] && reach[e.to]) indeg[e.to]++;
+      });
+      var inMap = {};
+      state.edges.forEach(function (e) { if (reach[e.from] && reach[e.to]) (inMap[e.to] = inMap[e.to] || []).push(e.from); });
+      // Kahn 拓扑
+      var order = [];
+      var q = Object.keys(indeg).filter(function (id) { return indeg[id] === 0; });
+      var guard = 0;
+      while (q.length && guard++ < 512) {
+        var id2 = q.shift();
+        order.push(id2);
+        (outMap[id2] || []).forEach(function (to) {
+          if (--indeg[to] === 0) q.push(to);
+        });
+      }
+      if (order.length < Object.keys(reach).length) {
+        running = false;
+        FF.Toast.show(t("flow.cycle") || "存在环/断连", "err");
+        return;
+      }
+      var resultIm = Promise.resolve(inputNode.imageData);
+      var seq = Promise.resolve();
+      var outSeen = 0;
+      order.forEach(function (id3) {
+        var node = nodeById(id3);
+        if (!node) return;
+        if (node.type === "input") { node.imageData = inputNode.imageData; return; }
+        seq = seq.then(function () {
+          var srcId = (inMap[id3] || [])[0];
+          var src = srcId ? nodeById(srcId) : null;
+          var upstream = (src && src.imageData) ? src.imageData : inputNode.imageData;
+          if (node.type === "output") {
+            node.imageData = upstream;
+            outSeen++;
+            resultIm = Promise.resolve(upstream);
+            return null;
+          }
+          return execNode(node, upstream).then(function (im) {
+            node.imageData = im;
+            return null;
+          });
+        });
+      });
+      seq.then(function () {
+        render();
+        FF.Toast.show(t("flow.done") + (outSeen > 1 ? " · " + outSeen + " outputs" : ""), "ok");
+        running = false;
+      }).catch(function (e) {
         running = false;
         FF.Toast.show("Error: " + (e.message || e), "err");
-        finish();
-      }
-      step();
+        render();
+      });
     }
 
     /* ---------- 蓝图保存 / 加载 / 预设 ---------- */

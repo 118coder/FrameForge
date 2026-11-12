@@ -27,6 +27,7 @@
     { id: "chroma", route: "#/chroma", icon: "scissors", key: "K", size: "lg", enabled: true, cat: "tools" },
     { id: "sheet",  route: "#/sheet",  icon: "grid",    key: "S", size: "lg", enabled: true, cat: "tools" },
     { id: "gif",    route: "#/gif",    icon: "film",    key: "G", size: "lg", enabled: true, cat: "tools" },
+    { id: "gifcomp", route: "#/gifcomposer", icon: "film",  key: "", size: "lg", enabled: true, cat: "tools" },
     { id: "pixel",  route: "#/pixel",  icon: "pixel",   key: "W", size: "lg", enabled: true, badges: ["badge.onekey"], cat: "tools" },
     { id: "layers", route: "#/layers", icon: "layers",  key: "L", size: "lg", enabled: true, cat: "tools" },
     { id: "pixelplus", route: "#/pixelplus", icon: "pixel", key: "F", size: "lg", enabled: true, cat: "tools" },
@@ -34,6 +35,7 @@
     /* -- 效率工具区 -- */
     { id: "pro",    route: "#/pro",    icon: "pixel",   key: "R", size: "lg", enabled: true, cat: "pro" },
     { id: "flow",   route: "#/flow",   icon: "hd2d",    key: "T", size: "lg", enabled: true, badges: ["badge.new"], cat: "pro" },
+    { id: "gwm",    route: "#/gwm",    icon: "ps",      key: "", size: "lg", enabled: true, cat: "pro" },
     { id: "rseprite", route: "#/rseprite", icon: "ps",   key: "E", size: "lg", enabled: true, badges: ["badge.new"], cat: "pro" },
     { id: "chat",   route: "#/chat",   icon: "ai",      key: "C", size: "lg", enabled: true, cat: "pro" },
     /* -- 资源与说明区 -- */
@@ -696,6 +698,10 @@
     "#/hd2d": function (q) { return FF.Tools.hd2d(q); },
     "#/onlineps": function (q) { return FF.Tools.onlineps(q); },
     "#/tut": function (q) { return FF.Tools.tut(q); },
+    "#/videogen": function (q) { return FF.Tools.videogen(q); },
+    "#/scenechar": function (q) { return FF.Tools.scenechar(q); },
+    "#/gifcomposer": function (q) { return FF.Tools.gifcomposer(q); },
+    "#/gwm": function (q) { return FF.Tools.geminiwm(q); },
     "#/wuxia": function (q) { return FF.Tools.wuxia(q); },
     "#/training": function (q) { return FF.Tools.training(q); }
   };

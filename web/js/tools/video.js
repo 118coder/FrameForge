@@ -37,6 +37,20 @@
       }
     });
 
+    // 接收视频生成页传递的成品（ff.transferVideoUrl = dataURL）
+    (function () {
+      try {
+        var dv = sessionStorage.getItem("ff.transferVideoUrl");
+        if (!dv) return;
+        sessionStorage.removeItem("ff.transferVideoUrl");
+        var bin = atob(dv.split(",")[1]);
+        var u8 = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        var f = new File([u8], "generated_video.mp4", { type: "video/mp4" });
+        setTimeout(function () { loadVideo(f); }, 0);
+      } catch (e) { /* noop */ }
+    })();
+
     function loadVideo(f) {
       cleanupVideo();
       var v = document.createElement("video");

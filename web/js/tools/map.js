@@ -16,6 +16,9 @@
     var tiles = []; // {canvas, x, y, w, h}
     var scale = 0.25, panX = 0, panY = 0;
     var snapOn = true, gridSize = 64;
+    var collisionOn = false;            // 碰撞绘制模式（对齐原站地图拼接2：碰撞层）
+    var collisionSet = {};              // { "gx,gy": 1 }（以 gridSize 网格坐标）
+    var erasing = false;
     var spaceDown = false;
 
     /* ---------- 画板 ---------- */
@@ -52,6 +55,12 @@
       draw();
     });
     var exportBtn = UI.btn(t("map.export"), "btn-primary", exportImage, "download");
+    var collBtn = UI.btn(t("map.collision"), "btn-outline", function () {
+      collisionOn = !collisionOn;
+      collBtn.className = collisionOn ? "btn btn-primary" : "btn btn-outline";
+      draw();
+    });
+    var godotBtn = UI.btn(t("map.godot"), "btn-outline", exportGodot, "download");
     var counter = UI.el("span", { class: "tag-chip" }, ["0 tiles"]);
 
     function setZoom(s, cx, cy) {
@@ -214,6 +223,16 @@
       tiles.forEach(function (tl) {
         ctx.drawImage(tl.canvas, tl.x * scale + panX, tl.y * scale + panY, tl.w * scale, tl.h * scale);
       });
+      // 碰撞层（原站地图拼接2语义：红格覆盖）
+      if (collisionOn) {
+        ctx.fillStyle = "rgba(220,60,50,0.35)";
+        var gsize = gridSize * scale;
+        Object.keys(collisionSet).forEach(function (key) {
+          var xy = key.split(",");
+          var gx = +xy[0], gy = +xy[1];
+          ctx.fillRect(gx * gridSize * scale + panX, gy * gridSize * scale + panY, gsize, gsize);
+        });
+      }
       // 拖拽中的图块高亮
       if (dragging) {
         var d = dragging.tile;
@@ -227,6 +246,31 @@
 
     var ro = new ResizeObserver(function () { draw(); });
     ro.observe(canvas);
+
+    /* ---------- 碰撞绘制（原站地图拼接2） ---------- */
+    canvas.addEventListener("pointerdown", function (e) {
+      if (!collisionOn) return;
+      e.stopImmediatePropagation();
+      var r = canvas.getBoundingClientRect();
+      var wx = (e.clientX - r.left - panX) / scale, wy = (e.clientY - r.top - panY) / scale;
+      erasing = !collisionSet[Math.floor(wx / gridSize) + "," + Math.floor(wy / gridSize)];
+      paintCollision(e);
+      function mv(ev) { paintCollision(ev); }
+      function up() {
+        window.removeEventListener("pointermove", mv);
+        window.removeEventListener("pointerup", up);
+      }
+      window.addEventListener("pointermove", mv);
+      window.addEventListener("pointerup", up);
+    }, true);
+    function paintCollision(e) {
+      var r = canvas.getBoundingClientRect();
+      var wx = (e.clientX - r.left - panX) / scale, wy = (e.clientY - r.top - panY) / scale;
+      var key = Math.floor(wx / gridSize) + "," + Math.floor(wy / gridSize);
+      if (erasing) delete collisionSet[key];
+      else collisionSet[key] = 1;
+      draw();
+    }
 
     /* ---------- 导出 ---------- */
 
@@ -253,6 +297,64 @@
         c.drawImage(tl.canvas, tl.x - minX, tl.y - minY);
       });
       UI.downloadCanvas(out, "map_stitched.png");
+    }
+
+    /* Godot 导出：地图 PNG + 碰撞 JSON + TileSet/TileMap 场景片段（ZIP） */
+    async function exportGodot() {
+      if (!tiles.length) return;
+      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      tiles.forEach(function (tl) {
+        minX = Math.min(minX, tl.x); minY = Math.min(minY, tl.y);
+        maxX = Math.max(maxX, tl.x + tl.w); maxY = Math.max(maxY, tl.y + tl.h);
+      });
+      var w = Math.min(BOARD, maxX - minX), h = Math.min(BOARD, maxY - minY);
+      var out = UI.makeCanvas(w, h);
+      out.getContext("2d").drawImage((function () {
+        var c2 = UI.makeCanvas(w, h);
+        tiles.forEach(function (tl) { c2.getContext("2d").drawImage(tl.canvas, tl.x - minX, tl.y - minY); });
+        return c2;
+      })(), 0, 0);
+      var pngBlob = await new Promise(function (r2) { out.toBlob(r2, "image/png"); });
+      var cols = Math.ceil(w / gridSize), rows = Math.ceil(h / gridSize);
+      var offX = Math.floor(minX / gridSize), offY = Math.floor(minY / gridSize);
+      var cells = [];
+      Object.keys(collisionSet).forEach(function (key) {
+        var xy = key.split(",");
+        var gx = +xy[0] - offX, gy = +xy[1] - offY;
+        if (gx >= 0 && gy >= 0 && gx < cols && gy < rows) cells.push([gx, gy]);
+      });
+      var coll = JSON.stringify({
+        tile_size: gridSize,
+        map_size: [cols, rows],
+        collision_cells: cells,
+        note: "collision_cells = [col,row]，0 基，对应 map_stitched.png"
+      }, null, 2);
+      var godotScene = [
+        '[gd_scene load_steps=3 format=3]',
+        '',
+        '[ext_resource type="Texture2D" path="res://map_stitched.png" id="1"]',
+        '',
+        '[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_1"]',
+        'texture = ExtResource("1")',
+        '',
+        '[sub_resource type="TileSet" id="TileSet_1"]',
+        'tile_size = Vector2i(' + gridSize + ', ' + gridSize + ')',
+        '',
+        '[node name="GameMap" type="Node2D"]',
+        '',
+        '[node name="TileMap" type="TileMap" parent="."]',
+        'tile_set = SubResource("TileSet_1")',
+        '',
+        '[node name="Collision" type="StaticBody2D" parent="."]',
+        ''
+      ].join('\n');
+      var files = [
+        { name: "map_stitched.png", data: new Uint8Array(await pngBlob.arrayBuffer()) },
+        { name: "collision.json", data: new TextEncoder().encode(coll) },
+        { name: "game_map.tscn", data: new TextEncoder().encode(godotScene) }
+      ];
+      UI.download(FF.Zip.make(files), "map_godot_export.zip");
+      FF.Toast.show(t("map.godot.done") || "Godot 导出完成", "ok");
     }
 
     /* ---------- AI 生成地图（新手友好，对齐原站 MapStitch 生成流程） ---------- */
@@ -324,7 +426,7 @@
         UI.el("div", { class: "param-row" }, [UI.el("label", {}, [t("map.trim")]), trimSw.el])
       ]),
       UI.el("div", { class: "row mt14", style: { gap: "6px" } }, [
-        zoomOut, zoomLabel, zoomIn, zoomFit, clearBtn, exportBtn, counter
+        zoomOut, zoomLabel, zoomIn, zoomFit, clearBtn, exportBtn, collBtn, godotBtn, counter
       ]),
       UI.el("div", { class: "mt14" }, [view]),
       UI.el("div", { class: "hint-text mt8" }, [t("map.hint")])
